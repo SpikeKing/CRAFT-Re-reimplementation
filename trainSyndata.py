@@ -1,44 +1,20 @@
-import os
-import sys
-import torch
-import torch.utils.data as data
-import cv2
-import numpy as np
-import scipy.io as scio
 import argparse
+import random
 import time
-import torch.nn as nn
-import torch.nn.functional as F
+from collections import OrderedDict
+
+import torch
 import torch.backends.cudnn as cudnn
 import torch.optim as optim
-import random
-import h5py
-import re
-import water
-from test import test
-
-
-from math import exp
-from data_loader import ICDAR2015, Synth80k, ICDAR2013
-
-###import file#######
-from augmentation import random_rot, crop_img_bboxes
-from gaussianmap import gaussion_transform, four_point_transform
-from generateheatmap import add_character, generate_target, add_affinity, generate_affinity, sort_box, real_affinity, generate_affinity_box
-from mseloss import Maploss
-
-
-
-from collections import OrderedDict
-from eval.script import getresult
-
-
-
-from PIL import Image
-from torchvision.transforms import transforms
-from craft import CRAFT
+import torch.utils.data as data
 from torch.autograd import Variable
-from multiprocessing import Pool
+
+from craft import CRAFT
+from data_loader import Synth80k
+from eval.script import getresult
+###import file#######
+from mseloss import Maploss
+from test import test
 
 #3.2768e-5
 random.seed(42)

@@ -5,13 +5,10 @@ MIT License
 
 # -*- coding: utf-8 -*-
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
-from collections import OrderedDict
-import torch.nn.init as init
-from torchutil import *
 
 from basenet.vgg16_bn import vgg16_bn
+from torchutil import *
 
 
 class double_conv(nn.Module):
