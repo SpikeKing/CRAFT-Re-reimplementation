@@ -3,31 +3,26 @@ Copyright (c) 2019-present NAVER Corp.
 MIT License
 """
 
+import argparse
 # -*- coding: utf-8 -*-
-import sys
 import os
 import time
-import argparse
+from collections import OrderedDict
 
+import cv2
+import numpy as np
 import torch
-import torch.nn as nn
 import torch.backends.cudnn as cudnn
 from torch.autograd import Variable
 
-from PIL import Image
-
-import cv2
-from skimage import io
-import numpy as np
 import craft_utils
-import imgproc
 import file_utils
-import json
-import zipfile
-
+import imgproc
 from craft import CRAFT
 
-from collections import OrderedDict
+from root_dir import DATA_DIR
+
+
 def copyStateDict(state_dict):
     if list(state_dict.keys())[0].startswith("module"):
         start_idx = 1
@@ -60,7 +55,9 @@ args = parser.parse_args()
 """ For test images in a folder """
 image_list, _, _ = file_utils.get_files('/data/CRAFT-pytorch/test')
 
-result_folder = '/data/CRAFT-pytorch/result/'
+
+# result_folder = '/data/CRAFT-pytorch/result/'
+result_folder = os.path.join(DATA_DIR, 'result')
 if not os.path.isdir(result_folder):
     os.mkdir(result_folder)
 
