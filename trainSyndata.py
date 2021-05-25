@@ -1,3 +1,4 @@
+import os
 import argparse
 import random
 import time
@@ -15,6 +16,9 @@ from eval.script import getresult
 ###import file#######
 from mseloss import Maploss
 from test import test
+
+from myutils.project_utils import mkdir_if_not_exist
+from root_dir import SYNTH_TEXT_PATH, DATA_DIR
 
 #3.2768e-5
 random.seed(42)
@@ -81,7 +85,8 @@ if __name__ == '__main__':
     # imgtxt = box['txt'][0]
 
     #dataloader = syndata(imgname, charbox, imgtxt)
-    dataloader = Synth80k('/data/CRAFT-pytorch/syntext/SynthText/SynthText', target_size = 768)
+    # dataloader = Synth80k('/data/CRAFT-pytorch/syntext/SynthText/SynthText', target_size = 768)
+    dataloader = Synth80k(SYNTH_TEXT_PATH, target_size = 768)
     train_loader = torch.utils.data.DataLoader(
         dataloader,
         batch_size=16,
@@ -135,6 +140,10 @@ if __name__ == '__main__':
     loss_time = 0
     loss_value = 0
     compare_loss = 1
+
+    out_dir = os.path.join(DATA_DIR, 'synweights')
+    mkdir_if_not_exist(out_dir)
+
     for epoch in range(1000):
         loss_value = 0
         # if epoch % 50 == 0 and epoch != 0:
@@ -192,9 +201,11 @@ if __name__ == '__main__':
 
             if index % 5000 == 0 and index != 0:
                 print('Saving state, index:', index)
-                torch.save(net.module.state_dict(),
-                           '/data/CRAFT-pytorch/synweights/synweights_' + repr(index) + '.pth')
-                test('/data/CRAFT-pytorch/synweights/synweights_' + repr(index) + '.pth')
+                # torch.save(net.module.state_dict(), '/data/CRAFT-pytorch/synweights/synweights_' + repr(index) + '.pth')
+                # test('/data/CRAFT-pytorch/synweights/synweights_' + repr(index) + '.pth')
+                synweights_path = os.path.join(out_dir, 'synweights_' + repr(index) + '.pth')
+                torch.save(net.module.state_dict(), synweights_path)
+                test(synweights_path)
                 #test('/data/CRAFT-pytorch/craft_mlt_25k.pth')
                 getresult()
 

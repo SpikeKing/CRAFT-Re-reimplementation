@@ -10,3 +10,6 @@ import os
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 DATA_DIR = os.path.join(ROOT_DIR, 'mydata')
+
+SYNTH_TEXT_PATH = os.path.join(ROOT_DIR, '..', 'datasets', 'SynthText')
+PRETRAIN_PATH = os.path.join(DATA_DIR, 'models', 'vgg16_bn-6c64b313.pth')
