@@ -33,7 +33,7 @@ parser = argparse.ArgumentParser(description='CRAFT reimplementation')
 
 parser.add_argument('--resume', default=None, type=str,
                     help='Checkpoint state_dict file to resume training from')
-parser.add_argument('--batch_size', default=128, type = int,
+parser.add_argument('--batch_size', default=64, type = int,
                     help='batch size of training')
 #parser.add_argument('--cdua', default=True, type=str2bool,
                     #help='Use CUDA to train model')
