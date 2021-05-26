@@ -51,9 +51,13 @@ parser.add_argument('--test_folder', default='/data/', type=str, help='folder pa
 
 args = parser.parse_args()
 
+test_folder = os.path.join(DATA_DIR, 'test')
+if not os.path.isdir(test_folder):
+    os.mkdir(test_folder)
 
 """ For test images in a folder """
-image_list, _, _ = file_utils.get_files('/data/CRAFT-pytorch/test')
+# image_list, _, _ = file_utils.get_files('/data/CRAFT-pytorch/test')
+image_list, _, _ = file_utils.get_files(test_folder)
 
 
 # result_folder = '/data/CRAFT-pytorch/result/'

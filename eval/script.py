@@ -5,6 +5,10 @@ from eval import rrc_evaluation_funcs
 import importlib
 import zipfile
 import os
+
+from root_dir import DATA_DIR
+
+
 def evaluation_imports():
     """
     evaluation_imports: Dictionary ( key = module name , value = alias  )  with python modules used in the evaluation. 
@@ -349,4 +353,8 @@ def eval_2015(res_folder):
 def getresult():
     # rrc_evaluation_funcs.main_evaluation(None, default_evaluation_params, validate_data, evaluate_method)
     #eval_2015('../../test')
-    eval_2015('/data/CRAFT-pytorch/result')
+    # eval_2015('/data/CRAFT-pytorch/result')
+    result_folder = os.path.join(DATA_DIR, 'result')
+    if not os.path.isdir(result_folder):
+        os.mkdir(result_folder)
+    eval_2015(result_folder)
