@@ -1,44 +1,23 @@
 import os
-import sys
-import torch
-import torch.utils.data as data
-import cv2
-import numpy as np
-import scipy.io as scio
 import argparse
+import random
 import time
-import torch.nn as nn
-import torch.nn.functional as F
+from collections import OrderedDict
+
+import torch
 import torch.backends.cudnn as cudnn
 import torch.optim as optim
-import random
-import h5py
-import re
-import water
+import torch.utils.data as data
+from torch.autograd import Variable
+
+from craft import CRAFT
+from data_loader import ICDAR2015, Synth80k
+from eval.script import getresult
+###import file#######
+from mseloss import Maploss
 from test import test
 
-
-from math import exp
-from data_loader import ICDAR2015, Synth80k, ICDAR2013
-
-###import file#######
-from augmentation import random_rot, crop_img_bboxes
-from gaussianmap import gaussion_transform, four_point_transform
-from generateheatmap import add_character, generate_target, add_affinity, generate_affinity, sort_box, real_affinity, generate_affinity_box
-from mseloss import Maploss
-
-
-
-from collections import OrderedDict
-from eval.script import getresult
-
-
-
-from PIL import Image
-from torchvision.transforms import transforms
-from craft import CRAFT
-from torch.autograd import Variable
-from multiprocessing import Pool
+from root_dir import SYNTH_TEXT_PATH, DATA_DIR, ICDAR_2015_PATH
 
 #3.2768e-5
 random.seed(42)
@@ -101,7 +80,9 @@ def adjust_learning_rate(optimizer, gamma, step):
 
 if __name__ == '__main__':
 
-    dataloader = Synth80k('/data/CRAFT-pytorch/syntext/SynthText/SynthText', target_size = 768)
+
+
+    dataloader = Synth80k(SYNTH_TEXT_PATH, target_size = 768)
     train_loader = torch.utils.data.DataLoader(
         dataloader,
         batch_size=2,
@@ -113,16 +94,20 @@ if __name__ == '__main__':
     
     net = CRAFT()
 
-    net.load_state_dict(copyStateDict(torch.load('/data/CRAFT-pytorch/1-7.pth')))
-    
+    weak_model_path = os.path.join(DATA_DIR, 'models', 'Syndata.pth')
+
+    # net.load_state_dict(copyStateDict(torch.load('/data/CRAFT-pytorch/1-7.pth')))
+    net.load_state_dict(copyStateDict(torch.load(weak_model_path)))
     net = net.cuda()
 
 
 
-    net = torch.nn.DataParallel(net,device_ids=[0,1,2,3]).cuda()
+    net = torch.nn.DataParallel(net,device_ids=[0, 1, 2, 3, 4, 5, 6, 7]).cuda()
     cudnn.benchmark = True
     net.train()
-    realdata = ICDAR2015(net, '/data/CRAFT-pytorch/icdar2015', target_size=768)
+
+    # realdata = ICDAR2015(net, '/data/CRAFT-pytorch/icdar2015', target_size=768)
+    realdata = ICDAR2015(net, ICDAR_2015_PATH, target_size=768)
     real_data_loader = torch.utils.data.DataLoader(
         realdata,
         batch_size=10,
@@ -195,10 +180,14 @@ if __name__ == '__main__':
             #     torch.save(net.module.state_dict(),
             #                '/data/CRAFT-pytorch/real_weights/lower_loss.pth')
 
+        from myutils.project_utils import mkdir_if_not_exist
+        save_weight_folder = os.path.join(DATA_DIR, 'real_weights')
+        mkdir_if_not_exist(save_weight_folder)
+        out_model_path = os.path.join(save_weight_folder, 'CRAFT_clr_' + repr(epoch) + '.pth')
+
         print('Saving state, iter:', epoch)
-        torch.save(net.module.state_dict(),
-                   '/data/CRAFT-pytorch/real_weights/CRAFT_clr_' + repr(epoch) + '.pth')
-        test('/data/CRAFT-pytorch/real_weights/CRAFT_clr_' + repr(epoch) + '.pth')
+        torch.save(net.module.state_dict(), out_model_path)
+        test(out_model_path)
         #test('/data/CRAFT-pytorch/craft_mlt_25k.pth')
         getresult()
         

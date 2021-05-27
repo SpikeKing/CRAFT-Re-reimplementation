@@ -1,46 +1,20 @@
-import os
-import sys
-import torch
-import torch.utils.data as data
-import cv2
-import numpy as np
-import scipy.io as scio
 import argparse
+import random
 import time
-import torch.nn as nn
-import torch.nn.functional as F
+from collections import OrderedDict
+
+import torch
 import torch.backends.cudnn as cudnn
 import torch.optim as optim
-import random
-import h5py
-import re
-import water
-
-from data_loader import ICDAR2015, Synth80k, ICDAR2013
-
-from test import test
-
-
-from math import exp
-
-###import file#######
-from augmentation import random_rot, crop_img_bboxes
-from gaussianmap import gaussion_transform, four_point_transform
-from generateheatmap import add_character, generate_target, add_affinity, generate_affinity, sort_box, real_affinity, generate_affinity_box
-from mseloss import Maploss
-
-
-
-from collections import OrderedDict
+import torch.utils.data as data
 from eval13.script import getresult
-
-
-
-from PIL import Image
-from torchvision.transforms import transforms
-from craft import CRAFT
 from torch.autograd import Variable
-from multiprocessing import Pool
+
+from craft import CRAFT
+from data_loader import Synth80k, ICDAR2013
+###import file#######
+from mseloss import Maploss
+from test import test
 
 #3.2768e-5
 random.seed(42)
@@ -75,7 +49,7 @@ args = parser.parse_args()
 
 
 
-def copyStateDict(state_dict):
+def copy_state_dict(state_dict):
     if list(state_dict.keys())[0].startswith("module"):
         start_idx = 1
     else:
@@ -129,7 +103,7 @@ if __name__ == '__main__':
     #print(input.size())
     net = CRAFT()
     #net.load_state_dict(copyStateDict(torch.load('/data/CRAFT-pytorch/CRAFT_net_050000.pth')))
-    net.load_state_dict(copyStateDict(torch.load('/data/CRAFT-pytorch/1-7.pth')))
+    net.load_state_dict(copy_state_dict(torch.load('/data/CRAFT-pytorch/1-7.pth')))
     #net.load_state_dict(copyStateDict(torch.load('/data/CRAFT-pytorch/craft_mlt_25k.pth')))
     #net.load_state_dict(copyStateDict(torch.load('/data/CRAFT-pytorch/synweights/syn_0_20000.pth')))
     #realdata = realdata(net)
@@ -142,7 +116,7 @@ if __name__ == '__main__':
     net.train()
 
     cudnn.benchmark = False
-    realdata = ICDAR2013(net, '/data/CRAFT-pytorch/icdar1317', target_size = 768, viz = False)
+    realdata = ICDAR2013(net, '/data/CRAFT-pytorch/icdar1317', target_size=768, viz=False)
     real_data_loader = torch.utils.data.DataLoader(
         realdata,
         batch_size=10,
@@ -178,7 +152,7 @@ if __name__ == '__main__':
             #real_images, real_gh_label, real_gah_label, real_mask = next(batch_real)
             syn_images, syn_gh_label, syn_gah_label, syn_mask, __ = next(batch_syn)
             #net.train()
-            images = torch.cat((syn_images,real_images), 0)
+            images = torch.cat((syn_images,real_images), 0)  # 合成图像+场景图像
             gh_label = torch.cat((syn_gh_label, real_gh_label), 0)
             gah_label = torch.cat((syn_gah_label, real_gah_label), 0)
             mask = torch.cat((syn_mask, real_mask), 0)
