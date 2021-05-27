@@ -32,7 +32,7 @@ parser = argparse.ArgumentParser(description='CRAFT reimplementation')
 
 parser.add_argument('--resume', default=None, type=str,
                     help='Checkpoint state_dict file to resume training from')
-parser.add_argument('--batch_size', default=128, type = int,
+parser.add_argument('--batch_size', default=32, type = int,
                     help='batch size of training')
 #parser.add_argument('--cdua', default=True, type=str2bool,
                     #help='Use CUDA to train model')
@@ -102,7 +102,7 @@ if __name__ == '__main__':
 
 
 
-    net = torch.nn.DataParallel(net,device_ids=[0, 1, 2, 3, 4, 5, 6, 7]).cuda()
+    net = torch.nn.DataParallel(net,device_ids=[0, 1]).cuda()
     cudnn.benchmark = True
     net.train()
 
