@@ -134,6 +134,11 @@ def test_net(net, image, text_threshold, link_threshold, low_text, cuda, poly, r
     score_text = y[0,:,:,0].cpu().data.numpy()
     score_link = y[0,:,:,1].cpu().data.numpy()
 
+    print('[Info] score_text: {}'.format(score_text.shape))
+    print('[Info] score_text: {} {}'.format(np.max(score_text), np.min(score_text)))
+    print('[Info] score_link: {}'.format(score_link.shape))
+    print('[Info] score_link: {} {}'.format(np.max(score_link), np.min(score_link)))
+
     # refine link
     if refine_net is not None:
         with torch.no_grad():
@@ -201,10 +206,10 @@ if __name__ == '__main__':
         mask_file = result_folder + "/res_" + filename + '_mask.jpg'
         cv2.imwrite(mask_file, score_text)
 
-        if bboxes:
-            from myutils.cv_utils import draw_box_list
-            boxes_file = result_folder + "/res_" + filename + '_boxes.jpg'
-            draw_box_list(image[:,:,::-1], box_list=bboxes, save_name=boxes_file)
+        # if bboxes:
+        #     from myutils.cv_utils import draw_box_list
+        #     boxes_file = result_folder + "/res_" + filename + '_boxes.jpg'
+        #     draw_box_list(image[:,:,::-1], box_list=bboxes, save_name=boxes_file)
 
         saveResult4Test(image_path, image[:,:,::-1], polys, dirname=result_folder)
 
