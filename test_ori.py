@@ -63,6 +63,55 @@ result_folder = './result/'
 if not os.path.isdir(result_folder):
     os.mkdir(result_folder)
 
+
+def saveResult4Test(img_file, img, boxes, dirname='./result/', verticals=None, texts=None):
+    """ save text detection result one by one
+    Args:
+        img_file (str): image file name
+        img (array): raw image context
+        boxes (array): array of result file
+            Shape: [num_detections, 4] for BB output / [num_detections, 4] for QUAD output
+    Return:
+        None
+    """
+    img = np.array(img)
+    print('[Info] img: {}'.format(img.shape))
+    print('[Info] boxes: {}'.format(len(boxes)))
+
+    # make result file list
+    filename, file_ext = os.path.splitext(os.path.basename(img_file))
+
+    # result directory
+    res_file = dirname + "res_" + filename + '.txt'
+    res_img_file = dirname + "res_" + filename + '.jpg'
+
+    if not os.path.isdir(dirname):
+        os.mkdir(dirname)
+
+    with open(res_file, 'w') as f:
+        for i, box in enumerate(boxes):
+            poly = np.array(box).astype(np.int32).reshape((-1))
+            strResult = ','.join([str(p) for p in poly]) + '\r\n'
+            f.write(strResult)
+
+            poly = poly.reshape(-1, 2)
+            cv2.polylines(img, [poly.reshape((-1, 1, 2))], True, color=(0, 0, 255), thickness=2)
+            ptColor = (0, 255, 255)
+            if verticals is not None:
+                if verticals[i]:
+                    ptColor = (255, 0, 0)
+
+            if texts is not None:
+                font = cv2.FONT_HERSHEY_SIMPLEX
+                font_scale = 0.5
+                cv2.putText(img, "{}".format(texts[i]), (poly[0][0] + 1, poly[0][1] + 1), font, font_scale,
+                            (0, 0, 0), thickness=1)
+                cv2.putText(img, "{}".format(texts[i]), tuple(poly[0]), font, font_scale, (0, 255, 255),
+                            thickness=1)
+
+    # Save result image
+    cv2.imwrite(res_img_file, img)
+
 def test_net(net, image, text_threshold, link_threshold, low_text, cuda, poly, refine_net=None):
     t0 = time.time()
 
@@ -116,6 +165,8 @@ def test_net(net, image, text_threshold, link_threshold, low_text, cuda, poly, r
 
 
 
+
+
 if __name__ == '__main__':
     # load net
     net = CRAFT(pretrained=False)     # initialize
@@ -150,6 +201,6 @@ if __name__ == '__main__':
         mask_file = result_folder + "/res_" + filename + '_mask.jpg'
         cv2.imwrite(mask_file, score_text)
 
-        file_utils.saveResult(image_path, image[:,:,::-1], polys, dirname=result_folder)
+        saveResult4Test(image_path, image[:,:,::-1], polys, dirname=result_folder)
 
     print("elapsed time : {}s".format(time.time() - t))
