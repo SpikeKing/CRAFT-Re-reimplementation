@@ -201,9 +201,10 @@ if __name__ == '__main__':
         mask_file = result_folder + "/res_" + filename + '_mask.jpg'
         cv2.imwrite(mask_file, score_text)
 
-        from myutils.cv_utils import draw_box_list
-        boxes_file = result_folder + "/res_" + filename + '_boxes.jpg'
-        draw_box_list(image[:,:,::-1], box_list=bboxes, save_name=boxes_file)
+        if bboxes:
+            from myutils.cv_utils import draw_box_list
+            boxes_file = result_folder + "/res_" + filename + '_boxes.jpg'
+            draw_box_list(image[:,:,::-1], box_list=bboxes, save_name=boxes_file)
 
         saveResult4Test(image_path, image[:,:,::-1], polys, dirname=result_folder)
 
