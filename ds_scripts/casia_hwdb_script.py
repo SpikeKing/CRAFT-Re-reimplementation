@@ -85,7 +85,7 @@ class CasiaHwdbScript(object):
         for idx, data_line in enumerate(data_lines):
             out_file = os.path.join(out_dir, "{}_{}.png".format(name_x, idx))
             img_data = requests.get(data_line).content
-            print(data_line)
+            # print(data_line)
             with open(out_file, 'wb') as hl:
                 hl.write(img_data)
 
@@ -102,7 +102,7 @@ class CasiaHwdbScript(object):
 
         paths_list, names_list = traverse_dir_files(files_dir)
 
-        pool = Pool(processes=20)
+        pool = Pool(processes=100)
         for path, name in zip(paths_list, names_list):
             name_x = name.split('.')[0]
             word_dir = os.path.join(out_dir, name_x)
