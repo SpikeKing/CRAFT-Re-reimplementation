@@ -51,7 +51,8 @@ parser.add_argument('--refiner_model', default='weights/craft_refiner_CTW1500.pt
 
 args = parser.parse_args()
 
-args.trained_model = "mydata/models/Syndata.pth"
+# args.trained_model = "mydata/models/Syndata.pth"
+args.trained_model = "mydata/models/craft_mlt_25k.pth"
 args.test_folder = "mydata/imgs/"
 args.cuda = False
 
@@ -131,8 +132,8 @@ def test_net(net, image, text_threshold, link_threshold, low_text, cuda, poly, r
         y, feature = net(x)
 
     # make score and link map
-    score_text = y[0,:,:,0].cpu().data.numpy()
-    score_link = y[0,:,:,1].cpu().data.numpy()
+    score_text = y[0, :, :, 0].cpu().data.numpy()
+    score_link = y[0, :, :, 1].cpu().data.numpy()
 
     print('[Info] score_text: {}'.format(score_text.shape))
     print('[Info] score_text: {} {}'.format(np.max(score_text), np.min(score_text)))
@@ -164,12 +165,10 @@ def test_net(net, image, text_threshold, link_threshold, low_text, cuda, poly, r
     render_img = np.hstack((render_img, score_link))
     ret_score_text = imgproc.cvt2HeatmapImg(render_img)
 
-    if args.show_time : print("\ninfer/postproc time : {:.3f}/{:.3f}".format(t0, t1))
+    if args.show_time:
+        print("\ninfer/postproc time : {:.3f}/{:.3f}".format(t0, t1))
 
     return boxes, polys, ret_score_text
-
-
-
 
 
 if __name__ == '__main__':
