@@ -28,13 +28,16 @@ class LabelPrepare(object):
 
     @staticmethod
     def process_url(img_url, url_name_dict):
-        oss_folder_format = "zhengsheng.wcl/Character-Detection/datasets/k12-images/{}"
+        """
+        处理URL
+        """
+        oss_folder = "zhengsheng.wcl/Character-Detection/datasets/k12-images-yuwen-grade1_4/"
         img_name = img_url.split("/")[-1].lower()
         res_dict = get_trt_rotation_vpf_service(img_url)
         rotated_image_url = res_dict['data']['rotated_image_url']
         _, img_bgr = download_url_img(rotated_image_url)
-        oss_folder = oss_folder_format.format(url_name_dict[img_url])
-        save_img_2_oss(img_bgr, img_name, oss_folder)
+        folder_name = url_name_dict[img_url]
+        save_img_2_oss(img_bgr, folder_name + img_name, oss_folder)
 
     def rotate_img_urls(self):
         """
@@ -92,11 +95,39 @@ class LabelPrepare(object):
 
         print('[Info] 处理完成!')
 
+    @staticmethod
+    def generate_clean_urls_files():
+        file_dict = {
+            "1年级/上学期/语文/杨国旗-第四批/": "grade_1up_yuwen_yangguoqi",
+            "1年级/上学期/语文/陈玉凡/": "grade_1up_yuwen_chenyufan",
+            "2年级/上学期/语文/杨国旗-第四批/": "grade_2up_yuwen_yangguoqi",
+            "2年级/上学期/语文/陈玉凡/": "grade_2up_yuwen_chenyufan",
+            "2年级/下学期/语文/杨国旗-第四批/": "grade_2down_yuwen_yangguoqi",
+            "2年级/下学期/语文/陈玉凡/": "grade_2down_yuwen_chenyufan",
+            "3年级/上学期/语文/杨国旗-第四批/": "grade_3up_yuwen_yangguoqi",
+            "3年级/上学期/语文/陈玉凡/": "grade_3up_yuwen_chenyufan",
+            "4年级/上学期/语文/贺飞帆/四年级上册语文卷子/": "grade_4up_yuwen_hefeifan",
+            "4年级/上学期/语文/陈玉凡/": "grade_4up_yuwen_chenyufan",
+            "4年级/上学期/语文/高新/": "grade_4up_yuwen_gaoxin",
+            "4年级/下学期/语文/杨国旗-第四批/": "grade_4down_yuwen_yangguoqi",
+        }
+
+        for oss_name in file_dict.values():
+            oss_dir = "zhengsheng.wcl/Character-Detection/datasets/k12-images/{}".format(oss_name)
+            print(oss_dir)
+            file_name = oss_name + ".clean.txt"
+            out_file = os.path.join(DATA_DIR, 'label_clean_files', file_name)
+            create_file(out_file)
+            download_oss_dir(oss_dir, out_file, 'jpg')
+
+        print('[Info] 处理完成!')
+
 
 def main():
     lp = LabelPrepare()
     lp.rotate_img_urls()
     # lp.generate_urls_files()
+    # lp.generate_clean_urls_files()
 
 
 if __name__ == '__main__':
