@@ -47,3 +47,31 @@ def paste_png_on_bkg(draw_png, bkg_png, offset):
         bkg_png = cv2.cvtColor(bkg_png, cv2.COLOR_BGRA2BGR)
 
     return bkg_png
+
+
+def improve_img_bold(img_bgr, times=2.5):
+    """
+    加粗图像中的黑字部分
+    """
+    if times != 0:
+        scale = 1.0 / float(times)
+    else:
+        return img_bgr
+    img_mask = np.where(img_bgr[:] == (255, 255, 255), 0, 1)
+    img_bgr[np.where(img_mask[:] == 1)] = \
+        (img_bgr[np.where(img_mask[:] == 1)] * scale).astype(np.uint8)
+    img_bgr = np.clip(img_bgr, 0, 255)
+    return img_bgr
+
+
+def img_white_2_png(img_bgr, bkg_color=(255, 255, 255)):
+    """
+    白色图像转换为PNG图像
+    """
+    h, w, _ = img_bgr.shape
+    img_mask = np.where(img_bgr[:] == bkg_color, 0, 255)
+    img_alpha = img_mask[:, :, 2]  # 只使用最后一维
+    img_new = np.zeros((h, w, 4), dtype=np.uint8)
+    img_new[:, :, :3] = img_bgr
+    img_new[:, :, 3] = img_alpha
+    return img_new

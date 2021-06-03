@@ -684,30 +684,28 @@ def format_angle(angle):
     return r_angle
 
 
-def resize_image_with_padding(img_bgr, desired_size=224):
+def resize_with_padding(img_bgr, size, padding_bgr=None):
     """
-    padding resize 方法
+    先放大，再resize图像(方图)
     """
-    import cv2
+    h, w, c = img_bgr.shape
+    if h > w:
+        new_h = size
+        new_w = int(size / h * w)
+    else:
+        new_h = int(size / w * h)
+        new_w = size
+    img_resize = cv2.resize(img_bgr, (new_w, new_h))
+    img_new = np.ones((size, size, 3), dtype=np.uint8) * 255
 
-    old_size = img_bgr.shape[:2]  # old_size is in (height, width) format
+    if padding_bgr:  # 设置颜色
+        color = tuple(padding_bgr)
+        img_new[:] = color
 
-    ratio = float(desired_size) / max(old_size)
-    new_size = tuple([int(x * ratio) for x in old_size])
-
-    # new_size should be in (width, height) format
-
-    img_bgr = cv2.resize(img_bgr, (new_size[1], new_size[0]))
-
-    delta_w = desired_size - new_size[1]
-    delta_h = desired_size - new_size[0]
-    top, bottom = delta_h // 2, delta_h - (delta_h // 2)
-    left, right = delta_w // 2, delta_w - (delta_w // 2)
-
-    color = [255, 255, 255]
-    new_im = cv2.copyMakeBorder(img_bgr, top, bottom, left, right, cv2.BORDER_CONSTANT,
-                                value=color)
-    return new_im
+    sh = (size - new_h) // 2
+    sw = (size - new_w) // 2
+    img_new[sh:new_h + sh, sw:new_w + sw] = img_resize
+    return img_new
 
 
 def rotate_img_for_4angle(img_bgr, angle):
