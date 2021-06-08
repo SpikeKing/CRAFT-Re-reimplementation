@@ -359,7 +359,7 @@ class DbGenerator(object):
         """
         num_of_sample = 500000
         random.seed(47)
-        pool = Pool(processes=100)
+        pool = Pool(processes=10)
         params_list = []
         for idx in range(num_of_sample):
             params_list.append((idx, self.out_dir, self.words_dict, self.news_lines,
@@ -368,7 +368,9 @@ class DbGenerator(object):
                 break
 
         print('[Info] 样本数: {}'.format(len(params_list)))
-        pool.map(DbGenerator.generate_news_image_worker, params_list)
+        # pool.map(DbGenerator.generate_news_image_worker, params_list)
+        for params in params_list:
+            DbGenerator.generate_news_image_worker(params)
         print('[Info] 样本生成完成! num: {} path: {}'.format(len(params_list), self.out_dir))
 
     def check_data(self):
