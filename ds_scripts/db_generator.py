@@ -285,7 +285,7 @@ class DbGenerator(object):
     @staticmethod
     def generate_news_image_worker(param):
         idx, out_dir, words_dict, news_lines, white_bkg_imgs, black_bkg_imgs = param
-        print('[Info] 开始 idx: {}'.format(idx))
+        # print('[Info] 开始 idx: {}'.format(idx))
         DbGenerator.generate_news_image(
             idx, out_dir, words_dict, news_lines, white_bkg_imgs, black_bkg_imgs)
         print('[Info] 完成 idx: {}'.format(idx))
@@ -359,7 +359,7 @@ class DbGenerator(object):
         """
         num_of_sample = 500000
         random.seed(47)
-        pool = Pool(processes=10)
+        pool = Pool(processes=100)
         params_list = []
         for idx in range(num_of_sample):
             params_list.append((idx, self.out_dir, self.words_dict, self.news_lines,
@@ -406,7 +406,7 @@ class DbGenerator(object):
 
 
 def main():
-    dg = DbGenerator(is_test=True)
+    dg = DbGenerator(is_test=False)
     # dg.get_word_png("春", idx=5)
     # dg.get_word_img("美")
     dg.generate_datasets()
