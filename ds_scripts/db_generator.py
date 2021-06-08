@@ -26,7 +26,7 @@ class DbGenerator(object):
     数据集生成类
     """
     def __init__(self, is_test=False):
-        self.words_dict = DbGenerator.prepare_words_dict_imgs(is_test)
+        self.words_dict = DbGenerator.prepare_words_dict_imgs_mp(is_test)
         self.news_lines = DbGenerator.prepare_news_lines()
         self.white_bkg_imgs = DbGenerator.prepare_bkg_imgs(is_white=True)
         self.black_bkg_imgs = DbGenerator.prepare_bkg_imgs(is_white=False)
@@ -111,6 +111,54 @@ class DbGenerator(object):
                 if is_test:
                     break  # 测试
         print('[Info] \t初始化图像字典完成! {}'.format(time.time() - s_time))
+
+        return words_dict
+
+    @staticmethod
+    def cv2_imread_worker(param):
+        idx, path = param
+        img_bgr = cv2.imread(path)
+        if idx % 1000 == 0:
+            print('[Info] \tcount: {}'.format(idx))
+        return img_bgr
+
+    @staticmethod
+    def prepare_words_dict_imgs_mp(is_test):
+        """
+        创建文字字典图像
+        """
+        print('[Info] 初始化图像字典开始!')
+        s_time = time.time()
+        words_dir = os.path.join(ROOT_DIR, '..', 'datasets', 'chinese_words_1000')
+        paths_list, names_list = traverse_dir_files(words_dir)
+        print('[Info] \t字数: {}'.format(len(paths_list)))
+        words_dict = collections.defaultdict(list)
+        paths_list, names_list = shuffle_two_list(paths_list, names_list)
+
+        test_num = 10000
+        if is_test:
+            paths_list, names_list = paths_list[:test_num], names_list[:test_num]
+
+        count = 0
+        pool = Pool(processes=100)
+        word_list = []
+        param_list = []
+        for idx, path in enumerate(paths_list):
+            param_list.append((idx, path))
+        buffer_list = pool.map(DbGenerator.cv2_imread_worker, param_list)
+        for path, name in zip(paths_list, names_list):
+            word = path.split('/')[-2]  # 字
+            buffer_list.append(buffer_list)
+            word_list.append(word)
+            if is_test and count == test_num:
+                break  # 测试
+
+        for buffer, word in zip(buffer_list, word_list):
+            img_bgr = buffer
+            words_dict[word].append(img_bgr)
+
+        print('[Info] \t初始化图像字典完成! {}'.format(time.time() - s_time))
+
         return words_dict
 
     @staticmethod
@@ -252,8 +300,8 @@ class DbGenerator(object):
         bkg_idx = random.randint(0, len(bkg_imgs))
         bkg_idx = bkg_idx % len(bkg_imgs)
         bkg_img = bkg_imgs[bkg_idx]
-        print('[Info] num of bkgs: {}'.format(len(bkg_imgs)))
-        print('[Info] bkg_img: {}'.format(bkg_img.shape))
+        # print('[Info] num of bkgs: {}'.format(len(bkg_imgs)))
+        # print('[Info] bkg_img: {}'.format(bkg_img.shape))
 
         # 随机文本行数
         random.shuffle(news_lines)
@@ -273,7 +321,7 @@ class DbGenerator(object):
                 news_str = news_str[:30]
             line_png, char_list = DbGenerator.get_news_line(words_dict, news_str, is_white=is_white)
             line_png = resize_img_fixed(line_png, word_size, is_height=True)
-            print('[Info] idx: {} line_png: {}'.format(news_idx, line_png.shape))
+            # print('[Info] idx: {} line_png: {}'.format(news_idx, line_png.shape))
             start_y_tmp = start_y + news_idx * word_size  # 高度一直增加
             if not DbGenerator.check_width_thres(line_png, bkg_img, start_x, start_y_tmp):
                 print('[Info] 超出界限: {}'.format(news_idx))
@@ -301,7 +349,10 @@ class DbGenerator(object):
         """
         生成数据集
         """
-        num_of_sample = 500000
+        if self.is_test:
+            num_of_sample = 10
+        else:
+            num_of_sample = 500000
         random.seed(47)
         pool = Pool(processes=100)
         for idx in range(num_of_sample):
