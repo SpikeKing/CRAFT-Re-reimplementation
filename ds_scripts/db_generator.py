@@ -286,9 +286,12 @@ class DbGenerator(object):
     def generate_news_image_worker(param):
         idx, out_dir, words_dict, news_lines, white_bkg_imgs, black_bkg_imgs = param
         # print('[Info] 开始 idx: {}'.format(idx))
-        DbGenerator.generate_news_image(
-            idx, out_dir, words_dict, news_lines, white_bkg_imgs, black_bkg_imgs)
-        print('[Info] 完成 idx: {}'.format(idx))
+        try:
+            DbGenerator.generate_news_image(
+                idx, out_dir, words_dict, news_lines, white_bkg_imgs, black_bkg_imgs)
+            print('[Info] 完成 idx: {}'.format(idx))
+        except Exception as e:
+            print('[Exception] 完成 idx: {}'.format(idx))
 
     @staticmethod
     def generate_news_image(idx, out_dir, words_dict, news_lines, white_bkg_imgs, black_bkg_imgs):
