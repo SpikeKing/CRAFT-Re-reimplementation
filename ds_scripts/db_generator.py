@@ -8,9 +8,13 @@ Created by C. L. Wang on 2.6.21
 import os
 import sys
 
+from multiprocessing.pool import Pool
 from PIL import ImageDraw, ImageFont, Image
 
-from multiprocessing.pool import Pool
+p = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if p not in sys.path:
+    sys.path.append(p)
+
 from myutils.project_utils import *
 from myutils.cv_utils import *
 from myutils.cv4png_utils import *
@@ -18,6 +22,9 @@ from root_dir import DATA_DIR, ROOT_DIR
 
 
 class DbGenerator(object):
+    """
+    数据集生成类
+    """
     def __init__(self, is_test=False):
         self.words_dict = DbGenerator.prepare_words_dict_imgs(is_test)
         self.news_lines = DbGenerator.prepare_news_lines()
@@ -307,7 +314,7 @@ class DbGenerator(object):
         pool.close()
         pool.join()
         print('[Info] 样本生成完成! num: {} path: {}'.format(num_of_sample, self.out_dir))
-        
+
     def check_data(self):
         lbls_paths, _ = traverse_dir_files(self.out_dir, ext="txt")
         imgs_paths, _ = traverse_dir_files(self.out_dir, ext="jpg")
