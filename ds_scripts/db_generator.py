@@ -289,7 +289,7 @@ class DbGenerator(object):
                              start_y_tmp + word_size]]
                 words_bboxes.append(json.dumps(out_list))
 
-        out_name = "out_{}".format(idx)
+        out_name = "hwg_{}".format(idx)
         img_path = os.path.join(out_dir, out_name + ".jpg")
         lbl_path = os.path.join(out_dir, out_name + ".txt")
         # show_img_bgr(bkg_img, save_name=img_path)
@@ -301,7 +301,7 @@ class DbGenerator(object):
         """
         生成数据集
         """
-        num_of_sample = 10
+        num_of_sample = 500000
         random.seed(47)
         pool = Pool(processes=100)
         for idx in range(num_of_sample):
@@ -351,7 +351,7 @@ class DbGenerator(object):
 
 
 def main():
-    dg = DbGenerator(is_test=True)
+    dg = DbGenerator(is_test=False)
     # dg.get_word_png("春", idx=5)
     # dg.get_word_img("美")
     dg.generate_datasets()
