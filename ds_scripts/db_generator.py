@@ -269,7 +269,8 @@ class DbGenerator(object):
                 char_list.append(c_char)
             # show_img_png(img_png)
             png_list.append(img_png)
-        img_large_png = merge_imgs(png_list, cols=len(png_list), rows=1)
+        if png_list:
+            img_large_png = merge_imgs(png_list, cols=len(png_list), rows=1)
         # show_img_png(img_large_png, save_name="large.png")
         return img_large_png, char_list
 
@@ -291,6 +292,7 @@ class DbGenerator(object):
                 idx, out_dir, words_dict, news_lines, white_bkg_imgs, black_bkg_imgs)
             print('[Info] 完成 idx: {}'.format(idx))
         except Exception as e:
+            print('[Exception] e: {}'.format(e))
             print('[Exception] 完成 idx: {}'.format(idx))
 
     @staticmethod
@@ -363,8 +365,18 @@ class DbGenerator(object):
         num_of_sample = 500000
         random.seed(47)
         pool = Pool(processes=10)
+
+        # 已处理的图像
+        _, processed_names = traverse_dir_files(self.out_dir, ext="jpg")
+        processed_nums = []
+        for name in processed_names:
+            processed_nums.append(int(name.split(".")[0].split('_')[-1]))
+
         params_list = []
         for idx in range(num_of_sample):
+            if idx in processed_nums:
+                print('[Info] 已处理: {}'.format(idx))
+                continue
             params_list.append((idx, self.out_dir, self.words_dict, self.news_lines,
                                 self.white_bkg_imgs, self.black_bkg_imgs))
             if self.is_test and idx == 10:
