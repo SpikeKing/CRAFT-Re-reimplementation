@@ -25,6 +25,7 @@ class DbGenerator(object):
     """
     数据集生成类
     """
+
     def __init__(self, is_test=False):
         self.words_dict = DbGenerator.prepare_words_dict_imgs_mp(is_test)
         self.news_lines = DbGenerator.prepare_news_lines()
@@ -158,7 +159,6 @@ class DbGenerator(object):
             words_dict[word].append(img_bgr)
 
         print('[Info] \t初始化图像字典完成! {}'.format(time.time() - s_time))
-
         return words_dict
 
     @staticmethod
@@ -283,12 +283,20 @@ class DbGenerator(object):
             return True
 
     @staticmethod
+    def generate_news_image_worker(param):
+        idx, out_dir, words_dict, news_lines, white_bkg_imgs, black_bkg_imgs = param
+        print('[Info] 开始 idx: {}'.format(idx))
+        DbGenerator.generate_news_image(
+            idx, out_dir, words_dict, news_lines, white_bkg_imgs, black_bkg_imgs)
+        print('[Info] 完成 idx: {}'.format(idx))
+
+    @staticmethod
     def generate_news_image(idx, out_dir, words_dict, news_lines, white_bkg_imgs, black_bkg_imgs):
         """
         生成新闻图像
         """
         idx = str(idx).zfill(7)
-        print("idx: {}".format(idx) + '-' * 50)
+        print("[Info] idx: {}".format(idx) + '-' * 50)
         if random_prob(0.5):
             bkg_imgs = white_bkg_imgs
             is_white = True
@@ -349,30 +357,26 @@ class DbGenerator(object):
         """
         生成数据集
         """
-        if self.is_test:
-            num_of_sample = 10
-        else:
-            num_of_sample = 500000
+        num_of_sample = 500000
         random.seed(47)
-        pool = Pool(processes=100)
+        pool = Pool(processes=10)
+        params_list = []
         for idx in range(num_of_sample):
-            if self.is_test:
-                DbGenerator.generate_news_image(idx, self.out_dir, self.words_dict, self.news_lines,
-                    self.white_bkg_imgs, self.black_bkg_imgs)
-            else:
-                pool.apply_async(DbGenerator.generate_news_image,
-                                 (idx, self.out_dir, self.words_dict, self.news_lines,
-                                  self.white_bkg_imgs, self.black_bkg_imgs))
-        pool.close()
-        pool.join()
-        print('[Info] 样本生成完成! num: {} path: {}'.format(num_of_sample, self.out_dir))
+            params_list.append((idx, self.out_dir, self.words_dict, self.news_lines,
+                                self.white_bkg_imgs, self.black_bkg_imgs))
+            if self.is_test and idx == 10:
+                break
+
+        print('[Info] 样本数: {}'.format(len(params_list)))
+        pool.map(DbGenerator.generate_news_image_worker, params_list)
+        print('[Info] 样本生成完成! num: {} path: {}'.format(len(params_list), self.out_dir))
 
     def check_data(self):
         lbls_paths, _ = traverse_dir_files(self.out_dir, ext="txt")
         imgs_paths, _ = traverse_dir_files(self.out_dir, ext="jpg")
 
         random.seed(47)
-        idx = random.randint(0, len(lbls_paths)-1)
+        idx = random.randint(0, len(lbls_paths) - 1)
         lbl_path, img_path = lbls_paths[idx], imgs_paths[idx]
         data_lines = read_file(lbl_path)
         line_dict = collections.defaultdict(list)
@@ -402,7 +406,7 @@ class DbGenerator(object):
 
 
 def main():
-    dg = DbGenerator(is_test=False)
+    dg = DbGenerator(is_test=True)
     # dg.get_word_png("春", idx=5)
     # dg.get_word_img("美")
     dg.generate_datasets()
