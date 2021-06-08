@@ -553,9 +553,10 @@ def merge_imgs(imgs, cols=6, rows=6, is_h=True):
         raise Exception('[Exception] 合并图像的输入为空!')
 
     img_shape = imgs[0].shape
-    h, w, _ = img_shape
+    h, w, c = img_shape
 
-    large_imgs = np.ones((rows * h, cols * w, 3)) * 255  # 大图
+    large_imgs = np.ones((rows * h, cols * w, c)) * 255  # 大图
+    large_imgs = large_imgs.astype(np.uint8)
 
     if is_h:
         for j in range(rows):
@@ -596,7 +597,7 @@ def merge_two_imgs(img1, img2):
 
     large_img = np.ones((h, n_w1 + n_w2, 3)) * 255
     large_img[:, 0: n_w1] = n_img1
-    large_img[:, n_w1: n_w1+n_w2] = n_img2
+    large_img[:, n_w1: n_w1 + n_w2] = n_img2
     large_img = large_img.astype(np.uint8)
 
     return large_img
@@ -658,13 +659,13 @@ def random_crop(img, height, width, sh=0, sw=0):
     import random
     # print(sh, img.shape[0] - height - sh)
     h, w, _ = img.shape
-    img = img[sh:h-sh, sw:w-sw]
+    img = img[sh:h - sh, sw:w - sw]
     h, w, _ = img.shape
 
     y = random.randint(0, h - height)
     x = random.randint(0, w - width)
 
-    img = img[y:y+height, x:x+width]
+    img = img[y:y + height, x:x + width]
     return img
 
 
@@ -728,7 +729,7 @@ def rotate_img_for_4angle(img_bgr, angle):
     return img_rotated
 
 
-def rec2box(rec):
+def rec2bbox(rec):
     """
     多边形(多点)转换为xyxy
     """
@@ -740,6 +741,19 @@ def rec2box(rec):
     y_min, y_max = min(y_list), max(y_list)
     box = [x_min, y_min, x_max, y_max]
     return box
+
+
+def bbox2rec(bbox):
+    """
+    [x_min, y_min, x_max, y_max]转换为4点的rec
+    """
+    x_min, y_min, x_max, y_max = bbox
+    p1 = [x_min, y_min]
+    p2 = [x_max, y_min]
+    p3 = [x_max, y_max]
+    p4 = [x_min, y_max]
+    rec = [p1, p2, p3, p4]
+    return rec
 
 
 def get_box_center(box):
@@ -840,7 +854,6 @@ def draw_rec_list(img_bgr, rec_list, is_text=True, is_show=False, is_new=False, 
     if is_show or save_name:
         show_img_bgr(ori_img, save_name=save_name)
     return ori_img
-
 
 
 def safe_div(x, y):

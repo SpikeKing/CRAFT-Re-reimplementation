@@ -64,14 +64,18 @@ def improve_img_bold(img_bgr, times=2.5):
     return img_bgr
 
 
-def img_white_2_png(img_bgr, bkg_color=(255, 255, 255)):
+def img_white_2_png(img_bgr, bkg_color=(255, 255, 255), is_white=True):
     """
     白色图像转换为PNG图像
     """
+    if is_white:
+        img_char = img_bgr
+    else:
+        img_char = (img_bgr * (-1) + 255).astype(np.uint8)
     h, w, _ = img_bgr.shape
     img_mask = np.where(img_bgr[:] == bkg_color, 0, 255)
     img_alpha = img_mask[:, :, 2]  # 只使用最后一维
     img_new = np.zeros((h, w, 4), dtype=np.uint8)
-    img_new[:, :, :3] = img_bgr
+    img_new[:, :, :3] = img_char
     img_new[:, :, 3] = img_alpha
     return img_new

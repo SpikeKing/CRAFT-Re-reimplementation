@@ -374,9 +374,90 @@ class craft_base_dataset(data.Dataset):
         confidence_mask_torch = torch.from_numpy(confidence_mask).float()
         return image, region_scores_torch, affinity_scores_torch, confidence_mask_torch, confidences
 
+import collections
+import json
+from myutils.project_utils import traverse_dir_files, read_file
+from myutils.cv_utils import bbox2rec
+
+class HWFakeDB(craft_base_dataset):
+    def __init__(self, hw_folder, target_size=768, viz=False, debug=False):
+        super(HWFakeDB, self).__init__(target_size, viz, debug)
+        self.hw_folder = hw_folder
+        lbls_paths, _ = traverse_dir_files(self.hw_folder, ext="txt")
+        imgs_paths, _ = traverse_dir_files(self.hw_folder, ext="jpg")
+
+        charbox, imgtxt = [], []
+
+        for lbl_path in lbls_paths:
+            data_lines = read_file(lbl_path)
+            line_dict = collections.defaultdict(list)
+
+            for data_line in data_lines:
+                items = json.loads(data_line)
+                line_num = items[1]
+                word = items[0]
+                bbox = items[2]
+                line_dict[line_num].append([word, bbox2rec(bbox)])  # box转换成rec
+
+            sample_words, sample_boxes = [], []
+            for line_num in line_dict.keys():
+                info_list = line_dict[line_num]
+                words, bbox_list = "", []
+                for info_data in info_list:
+                    word, rec = info_data
+                    words += word
+                    bbox_list.append(rec)
+                bbox_arr = np.array(bbox_list)  # rec转换为数组
+                sample_words.append(words)
+                sample_boxes.append(bbox_arr)
+            sample_boxes_arr = np.concatenate(sample_boxes, axis=0).astype(np.float64)  # 数组合并到一起
+
+            imgtxt.append(sample_words)
+            charbox.append(sample_boxes_arr)
+
+        self.charbox = charbox
+        self.image = imgs_paths
+        self.imgtxt = imgtxt
+
+    def __getitem__(self, index):
+        return self.pull_item(index)
+
+    def __len__(self):
+        return len(self.imgtxt)
+
+    def get_imagename(self, index):
+        img_name = self.image[index].split('/')[-1]
+        return img_name
+
+    def load_image_gt_and_confidencemask(self, index):
+        '''
+        根据索引加载ground truth
+        :param index:索引
+        :return:bboxes 字符的框，
+        '''
+        img_path = self.image[index]
+        image = cv2.imread(img_path, cv2.IMREAD_COLOR)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+        _charbox = self.charbox[index]
+        image = random_scale(image, _charbox, self.target_size)
+
+        words = self.imgtxt[index]
+        character_bboxes = []
+        total = 0
+        confidences = []
+        for i in range(len(words)):
+            bboxes = _charbox[total:total + len(words[i])]
+            assert (len(bboxes) == len(words[i]))
+            total += len(words[i])
+            bboxes = np.array(bboxes)
+            character_bboxes.append(bboxes)
+            confidences.append(1.0)
+
+        return image, character_bboxes, words, np.ones((image.shape[0], image.shape[1]), np.float32), confidences
+
 
 class Synth80k(craft_base_dataset):
-
     def __init__(self, synthtext_folder, target_size=768, viz=False, debug=False):
         super(Synth80k, self).__init__(target_size, viz, debug)
         self.synthtext_folder = synthtext_folder
@@ -384,6 +465,7 @@ class Synth80k(craft_base_dataset):
         self.charbox = gt['charBB'][0]
         self.image = gt['imnames'][0]
         self.imgtxt = gt['txt'][0]
+        print('[Info] 加载Synth80k完成')
 
     def __getitem__(self, index):
         return self.pull_item(index)

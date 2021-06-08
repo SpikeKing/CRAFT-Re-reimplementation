@@ -97,37 +97,41 @@ class LabelPrepare(object):
 
     @staticmethod
     def generate_clean_urls_files():
-        file_dict = {
-            "1年级/上学期/语文/杨国旗-第四批/": "grade_1up_yuwen_yangguoqi",
-            "1年级/上学期/语文/陈玉凡/": "grade_1up_yuwen_chenyufan",
-            "2年级/上学期/语文/杨国旗-第四批/": "grade_2up_yuwen_yangguoqi",
-            "2年级/上学期/语文/陈玉凡/": "grade_2up_yuwen_chenyufan",
-            "2年级/下学期/语文/杨国旗-第四批/": "grade_2down_yuwen_yangguoqi",
-            "2年级/下学期/语文/陈玉凡/": "grade_2down_yuwen_chenyufan",
-            "3年级/上学期/语文/杨国旗-第四批/": "grade_3up_yuwen_yangguoqi",
-            "3年级/上学期/语文/陈玉凡/": "grade_3up_yuwen_chenyufan",
-            "4年级/上学期/语文/贺飞帆/四年级上册语文卷子/": "grade_4up_yuwen_hefeifan",
-            "4年级/上学期/语文/陈玉凡/": "grade_4up_yuwen_chenyufan",
-            "4年级/上学期/语文/高新/": "grade_4up_yuwen_gaoxin",
-            "4年级/下学期/语文/杨国旗-第四批/": "grade_4down_yuwen_yangguoqi",
-        }
-
-        for oss_name in file_dict.values():
-            oss_dir = "zhengsheng.wcl/Character-Detection/datasets/k12-images/{}".format(oss_name)
-            print(oss_dir)
-            file_name = oss_name + ".clean.txt"
-            out_file = os.path.join(DATA_DIR, 'label_clean_files', file_name)
-            create_file(out_file)
-            download_oss_dir(oss_dir, out_file, 'jpg')
+        """
+        读取oss的file
+        """
+        oss_name = "k12-images-yuwen-grade1_4"
+        oss_dir = "zhengsheng.wcl/Character-Detection/datasets/{}/".format(oss_name)
+        file_name = oss_name + ".txt"
+        out_file = os.path.join(DATA_DIR, file_name)
+        create_file(out_file)
+        download_oss_dir(oss_dir, out_file, 'jpg')
 
         print('[Info] 处理完成!')
+
+    @staticmethod
+    def split_url_files():
+        file_name = "k12-images-yuwen-grade1_4"
+        urls_file = os.path.join(DATA_DIR, '{}.txt'.format(file_name))
+        out_dir = os.path.join(DATA_DIR, 'label_clean_files')
+        mkdir_if_not_exist(out_dir)
+        data_lines = read_file(urls_file)
+        gap = 2000
+        for idx in range(0, len(data_lines), gap):
+            out_file = os.path.join(out_dir, '{}_{}_{}.txt'.format(file_name, idx, idx+gap))
+            create_file(out_file)
+            urls_list = data_lines[idx:idx+gap]
+            write_list_to_file(out_file, urls_list)
+        print('[Info] 处理完成: {}'.format(urls_file))
+
+
 
 
 def main():
     lp = LabelPrepare()
-    lp.rotate_img_urls()
+    # lp.rotate_img_urls()
     # lp.generate_urls_files()
-    # lp.generate_clean_urls_files()
+    lp.split_url_files()
 
 
 if __name__ == '__main__':
