@@ -30,7 +30,8 @@ class DbGenerator(object):
         self.news_lines = DbGenerator.prepare_news_lines()
         self.white_bkg_imgs = DbGenerator.prepare_bkg_imgs(is_white=True)
         self.black_bkg_imgs = DbGenerator.prepare_bkg_imgs(is_white=False)
-        self.out_dir = os.path.join(DATA_DIR, 'tmps')
+        self.out_dir = os.path.join(
+            ROOT_DIR, '..', 'datasets', 'hw_generator_{}'.format(get_current_day_str()))
         mkdir_if_not_exist(self.out_dir)
         self.is_test = is_test
 
