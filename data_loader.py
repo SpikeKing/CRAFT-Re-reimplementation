@@ -415,6 +415,7 @@ class HWFakeDB(craft_base_dataset):
             imgtxt.append(sample_words)
             charbox.append(sample_boxes_arr)
 
+        print('[Info] HWFakeDB加载完成，样本数: {}'.format(len(imgtxt)))
         self.charbox = charbox
         self.image = imgs_paths
         self.imgtxt = imgtxt
@@ -465,7 +466,7 @@ class Synth80k(craft_base_dataset):
         self.charbox = gt['charBB'][0]
         self.image = gt['imnames'][0]
         self.imgtxt = gt['txt'][0]
-        print('[Info] 加载Synth80k完成')
+        print('[Info] 加载Synth80k完成，样本数: {}'.format(len(self.imgtxt)))
 
     def __getitem__(self, index):
         return self.pull_item(index)

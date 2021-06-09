@@ -87,11 +87,11 @@ if __name__ == '__main__':
     # dataloader = Synth80k('/data/CRAFT-pytorch/syntext/SynthText/SynthText', target_size = 768)
 
     # 合成数据集
-    dataloader = Synth80k(SYNTH_TEXT_PATH, target_size=768)  # 已有数据
+    # dataloader = Synth80k(SYNTH_TEXT_PATH, target_size=768)  # 已有数据
 
     # 自定义合成数据集
-    # HW_TEXT_PATH = os.path.join(ROOT_DIR, '..', 'datasets', 'hw_generator_20210608')
-    # dataloader = HWFakeDB(HW_TEXT_PATH, target_size=768)
+    HW_TEXT_PATH = os.path.join(ROOT_DIR, '..', 'datasets', 'hw_generator_20210608')
+    dataloader = HWFakeDB(HW_TEXT_PATH, target_size=768)
 
     train_loader = torch.utils.data.DataLoader(
         dataloader,
