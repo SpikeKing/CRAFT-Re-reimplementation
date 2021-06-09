@@ -269,8 +269,7 @@ class DbGenerator(object):
                 char_list.append(c_char)
             # show_img_png(img_png)
             png_list.append(img_png)
-        if png_list:
-            img_large_png = merge_imgs(png_list, cols=len(png_list), rows=1)
+        img_large_png = merge_imgs(png_list, cols=len(png_list), rows=1)
         # show_img_png(img_large_png, save_name="large.png")
         return img_large_png, char_list
 
