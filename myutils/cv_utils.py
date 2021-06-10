@@ -780,7 +780,8 @@ def get_rec_center(rec):
     return x, y
 
 
-def draw_box_list(img_bgr, box_list, is_arrow=False, is_text=True, is_show=False, is_new=False, save_name=None):
+def draw_box_list(img_bgr, box_list, thickness=-1,
+                  is_arrow=False, is_text=True, is_show=False, is_new=False, save_name=None):
     """
     绘制矩形列表
     """
@@ -797,7 +798,7 @@ def draw_box_list(img_bgr, box_list, is_arrow=False, is_text=True, is_show=False
         # rec_arr = np.array(box)
         # ori_img = cv2.fillPoly(ori_img, [rec_arr], color_list[idx])
         x_min, y_min, x_max, y_max = box
-        ori_img = cv2.rectangle(ori_img, pt1=(x_min, y_min), pt2=(x_max, y_max), color=(color), thickness=-1)
+        ori_img = cv2.rectangle(ori_img, pt1=(x_min, y_min), pt2=(x_max, y_max), color=(color), thickness=thickness)
 
     ori_img = cv2.addWeighted(ori_img, 0.5, img_copy, 0.5, 0)
     ori_img = np.clip(ori_img, 0, 255)
@@ -854,6 +855,25 @@ def draw_rec_list(img_bgr, rec_list, is_text=True, is_show=False, is_new=False, 
     if is_show or save_name:
         show_img_bgr(ori_img, save_name=save_name)
     return ori_img
+
+
+def scale_contour(cnt, scale):
+    """
+    缩放contour值
+    :param cnt: contour
+    :param scale: 缩放值
+    :return: 新的contour
+    """
+    M = cv2.moments(cnt)
+    cx = int(M['m10']/M['m00'])
+    cy = int(M['m01']/M['m00'])
+
+    cnt_norm = cnt - [cx, cy]
+    cnt_scaled = cnt_norm * scale
+    cnt_scaled = cnt_scaled + [cx, cy]
+    cnt_scaled = cnt_scaled.astype(np.int32)
+
+    return cnt_scaled
 
 
 def safe_div(x, y):

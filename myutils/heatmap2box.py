@@ -5,18 +5,16 @@ Copyright (c) 2021. All rights reserved.
 Created by C. L. Wang on 27.5.21
 """
 
+import os
 import copy
-# import logging
 import math
-from concurrent.futures import ThreadPoolExecutor
 
 import cv2
 import numpy as np
 import pyclipper
 from shapely.geometry import Polygon
 
-
-# logger = logging.getLogger()
+from myutils.cv_utils import *
 
 
 def get_box(box):
@@ -196,7 +194,7 @@ def is_curly_text(poly_pts, h, w, out_box_region_size_, quad):
     return True, bottom_pts_, poly_height_mean_, poly_mask_
 
 
-def boxes_from_bitmap(pred, box_thresh, min_size_ratio, aspect_ratio, unclip_ratio, min_size, binary_thresh):
+def boxes_from_bitmap(img_bgr, pred, box_thresh, min_size_ratio, aspect_ratio, unclip_ratio, min_size, binary_thresh):
     """
     使用特征图生成最终离散的检测结果
     param pred: 特征图
@@ -204,11 +202,22 @@ def boxes_from_bitmap(pred, box_thresh, min_size_ratio, aspect_ratio, unclip_rat
     param min_size: BBox最小尺寸
     param unclip_ratio: BBox放大比例
     """
-
+    print("[Info] binary_thresh: {}".format(binary_thresh))
     # 生成分割结果
     _, bitmap = cv2.threshold((pred * 255).astype(np.uint8), binary_thresh, 255, cv2.THRESH_BINARY)
     contours, _ = cv2.findContours(bitmap, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE, hierarchy=None)[-2:]
-    ret = []
+
+    # new_contours = []
+    # for contour in contours:
+    #     points = contour.reshape((-1, 2))
+    #     if points.shape[0] < 4:
+    #         continue
+    #     new_contour = scale_contour(contour, 1.5)
+    #     new_contours.append(new_contour)
+
+    # img_bgr = cv2.drawContours(img_bgr, new_contours, -1, (0, 255, 0), 2)
+    # from root_dir import DATA_DIR
+    # show_img_bgr(img_bgr, save_name=os.path.join(DATA_DIR, "img_contours.jpg"))
 
     height, width = pred.shape
 
@@ -220,7 +229,6 @@ def boxes_from_bitmap(pred, box_thresh, min_size_ratio, aspect_ratio, unclip_rat
         points = contour.reshape((-1, 2))
         if points.shape[0] < 4:
             continue
-
         boxes = unclip(points, unclip_ratio)
         for box in boxes:
             box = np.array(box)
@@ -241,30 +249,25 @@ def boxes_from_bitmap(pred, box_thresh, min_size_ratio, aspect_ratio, unclip_rat
             res_scores.append(float(score))
             res_angles.append(int(angle))
 
+    from root_dir import DATA_DIR
+    draw_box_list(img_bgr, res_boxes, thickness=2, is_text=False, save_name=os.path.join(DATA_DIR, "img_boxes.jpg"))
     return res_boxes, res_scores, res_angles
 
 
-class Map2Box(object):
-    def __init__(self):
-        parameter = dict()
-        self.box_thresh = float(parameter.get('box_thresh', 0.3))
-        self.min_size_ratio = float(parameter.get('min_size_ratio', 0.015))
-        self.unclip_ratio = float(parameter.get('unclip_ratio', 2.0))
-        self.min_size = int(parameter.get('min_size', 12))
-        self.pool_size = int(parameter.get('pool_size', 0))
-        self.chunk_size = int(parameter.get('chunk_size', 2))
-        self.binary_thresh = int(parameter.get('binary_thresh', 145))
-        self.aspect_ratio = float(parameter.get('aspect_ratio', 1))
-        self.check_curly_text = bool(int(parameter.get('check_curly_text', 0)))
+def heatmap2box(heatmap, img_bgr):
+    """
+    heatmap的值从0~1
+    """
+    heatmap = np.clip(heatmap, 0, 1)
+    box_thresh = 0.3
+    min_size_ratio = 0.015
+    aspect_ratio = 1
+    unclip_ratio = 2.0
+    min_size = 12
+    binary_thresh = int(255 * 0.6)
 
-        self.pool = ThreadPoolExecutor(self.pool_size) if self.pool_size > 0 else None
-
-    def process_fields(self, prob_arr):
-        prob_arr = np.clip(prob_arr, 0, 1)
-
-        ret = boxes_from_bitmap(prob_arr, self.box_thresh, self.min_size_ratio, self.aspect_ratio,
-                                self.unclip_ratio, self.min_size, self.binary_thresh)
-        return ret
+    ret = boxes_from_bitmap(img_bgr, heatmap, box_thresh, min_size_ratio, aspect_ratio,
+                            unclip_ratio, min_size, binary_thresh)
 
 
 def main():
