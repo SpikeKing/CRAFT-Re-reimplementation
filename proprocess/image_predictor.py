@@ -35,7 +35,7 @@ class ImagePredictor(object):
         # self.model_path = os.path.join(DATA_DIR, 'models', 'craft_mlt_25k.pth')
         self.model_path = os.path.join(DATA_DIR, 'models', 'craft_best_20210610.pth')
         print('[Info] 模型路径: {}'.format(self.model_path))
-        self.cuda = True
+        self.cuda = False
         print('[Info] 是否GPU: {}'.format(self.cuda))
         self.net = self.load_model(self.model_path, self.cuda)
 
