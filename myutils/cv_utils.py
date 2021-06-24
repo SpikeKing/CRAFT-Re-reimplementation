@@ -287,7 +287,7 @@ def get_polygon_size(box):
     return area
 
 
-def get_patch(img, box):
+def get_cropped_patch(img, box):
     """
     获取Img的Patch
     :param img: 图像
@@ -780,8 +780,8 @@ def get_rec_center(rec):
     return x, y
 
 
-def draw_box_list(img_bgr, box_list, thickness=-1,
-                  is_arrow=False, is_text=True, is_show=False, is_new=False, save_name=None):
+def draw_box_list(img_bgr, box_list, thickness=2, color=None,
+                  is_overlap=True, is_arrow=False, is_text=True, is_show=False, is_new=False, save_name=None):
     """
     绘制矩形列表
     """
@@ -789,7 +789,10 @@ def draw_box_list(img_bgr, box_list, thickness=-1,
         img_bgr = copy.deepcopy(img_bgr)
 
     n_box = len(box_list)
-    color_list = generate_colors(n_box)  # 随机生成颜色
+    if not color:
+        color_list = generate_colors(n_box)  # 随机生成颜色
+    else:
+        color_list = [color] * n_box  # 颜色范围
     ori_img = copy.copy(img_bgr)
     img_copy = copy.copy(img_bgr)
 
@@ -798,9 +801,10 @@ def draw_box_list(img_bgr, box_list, thickness=-1,
         # rec_arr = np.array(box)
         # ori_img = cv2.fillPoly(ori_img, [rec_arr], color_list[idx])
         x_min, y_min, x_max, y_max = box
-        ori_img = cv2.rectangle(ori_img, pt1=(x_min, y_min), pt2=(x_max, y_max), color=(color), thickness=thickness)
+        ori_img = cv2.rectangle(ori_img, pt1=(x_min, y_min), pt2=(x_max, y_max), color=color, thickness=thickness)
 
-    ori_img = cv2.addWeighted(ori_img, 0.5, img_copy, 0.5, 0)
+    if is_overlap:
+        ori_img = cv2.addWeighted(ori_img, 0.5, img_copy, 0.5, 0)
     ori_img = np.clip(ori_img, 0, 255)
 
     # 绘制方向和序号
@@ -864,6 +868,9 @@ def scale_contour(cnt, scale):
     :param scale: 缩放值
     :return: 新的contour
     """
+    points = cnt.reshape((-1, 2))
+    if points.shape[0] < 4:
+        return cnt
     M = cv2.moments(cnt)
     cx = int(M['m10']/M['m00'])
     cy = int(M['m01']/M['m00'])
@@ -1140,6 +1147,41 @@ def filer_boxes_by_size(boxes, r_thr=0.4):
             new_idxes.append(sorted_idxes[i])
 
     return new_boxes, new_idxes
+
+
+def check_point_in_box(pnt, box):
+    """
+    判断点是否在box中
+    """
+    p_x, p_y = pnt
+    x_min, y_min, x_max, y_max = box
+    if x_min < p_x < x_max and y_min < p_y < y_max:
+        return True
+    else:
+        return False
+
+
+def image_to_base64(image_np, ext='.jpg'):
+    """
+    image转换为base64, ext是编码格式，'.jpg'和'.png'都支持
+    """
+    import base64
+
+    image = cv2.imencode(ext, image_np)[1]
+    image_code = str(base64.b64encode(image))[2:-1]  # 生成编码
+    return image_code
+
+
+def base64_2_image(image_encode):
+    """
+    base64转换为image
+    """
+    import base64
+
+    image_content = base64.urlsafe_b64decode(image_encode)
+    np_arr = np.asarray(bytearray(image_content)).reshape(1, -1)
+    image = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+    return image
 
 
 def main():

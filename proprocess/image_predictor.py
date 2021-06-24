@@ -7,17 +7,18 @@ Created by C. L. Wang on 10.6.21
 
 import os
 import sys
-import torch
-
 from collections import OrderedDict
-from torch.autograd import Variable
+
+import torch
 import torch.backends.cudnn as cudnn
+from torch.autograd import Variable
 
 p = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if p not in sys.path:
     sys.path.append(p)
 
 from craft import CRAFT
+from x_utils.vpf_utils import get_ocr_service_with_np
 from myutils.project_utils import *
 from myutils.cv_utils import *
 from myutils.heatmap2box import heatmap2box
@@ -32,8 +33,8 @@ class ImagePredictor(object):
         """
         初始化
         """
-        # self.model_path = os.path.join(DATA_DIR, 'models', 'craft_mlt_25k.pth')
-        self.model_path = os.path.join(DATA_DIR, 'models', 'craft_best_20210610.pth')
+        self.model_path = os.path.join(DATA_DIR, 'models', 'best_model_20210615.pth')
+        # self.model_path = os.path.join(DATA_DIR, 'models', 'craft_best_20210611.pth')
         print('[Info] 模型路径: {}'.format(self.model_path))
         self.cuda = False
         print('[Info] 是否GPU: {}'.format(self.cuda))
@@ -149,24 +150,71 @@ class ImagePredictor(object):
         img = cv2.applyColorMap(img, cv2.COLORMAP_JET)
         return img
 
-    def predict_img(self, img_rgb):
+    @staticmethod
+    def pos2bbox(pos):
+        rec = []
+        for point in pos:
+            x = point["x"]
+            y = point["y"]
+            rec.append([x, y])
+        bbox = rec2bbox(rec)
+        return bbox
+
+    @staticmethod
+    def parse_ocr_hw_res(res_dict):
+        """
+        解析ocr的手写结果
+        """
+        data_dict = res_dict['data']['data']
+        words_info = data_dict['wordsInfo']
+        bbox_list, line_list, prob_list = [], [], []
+        num_of_hw = 0
+        for word_info in words_info:
+            rec_classify = word_info['recClassify']
+            pos = word_info['pos']
+            if rec_classify == 25:
+                bbox = ImagePredictor.pos2bbox(pos)
+                word = word_info['word']
+                prob = word_info['prob']
+                bbox_list.append(bbox)
+                line_list.append(word)
+                prob_list.append(prob)
+                num_of_hw += 1
+        print('[Info] 手写框数量: {}'.format(num_of_hw))
+        print('[Info] bbox_list: {}, word_list: {}, prob_list: {}'
+              .format(len(bbox_list), len(line_list), len(prob_list)))
+
+        return bbox_list, line_list, prob_list
+
+    def predict_hw_boxes(self, img_rgb):
+        """
+        预测手写文字区域
+        """
+        res_dict = get_ocr_service_with_np(img_rgb)
+        hw_bboxes, hw_lines, hw_probs = ImagePredictor.parse_ocr_hw_res(res_dict)
+
+        # img_bgr = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2BGR)
+        # draw_box_list(img_bgr, box_list=bbox_list, is_show=True)
+        return hw_bboxes, hw_lines, hw_probs
+
+    def predict_char_bboxes(self, img_rgb):
         print('[Info] img_rgb: {}'.format(img_rgb.shape))
         oh, ow, _ = img_rgb.shape
+        # show_img_bgr(img_rgb[:, :, ::-1])
 
-        show_img_bgr(img_rgb[:, :, ::-1])
-        square_size = 2240
-        interpolation = cv2.INTER_LINEAR
+        # 第一步
+        square_size = 1120
         mag_ratio = 2.0
-        img_resized, target_ratio, size_heatmap = \
-            self.resize_aspect_ratio(img_rgb, square_size, interpolation, mag_ratio)
+        interpolation = cv2.INTER_LINEAR
+
+        image_resized, target_ratio, size_heatmap = \
+            ImagePredictor.resize_aspect_ratio(img_rgb, square_size, interpolation, mag_ratio)
         # show_img_bgr(img_resized[:, :, ::-1].astype(np.uint8))
-        print("[Info] img_resized: {}".format(img_resized.shape))
+        print("[Info] img_resized: {}".format(image_resized.shape))
         print("[Info] target_ratio: {}".format(target_ratio))
         print("[Info] size_heatmap: {}".format(size_heatmap))
 
-        ratio_h = ratio_w = 1 / target_ratio
-
-        x = self.normalize_mean_var(img_resized)
+        x = self.normalize_mean_var(image_resized)
         x = torch.from_numpy(x).permute(2, 0, 1)  # [h, w, c] to [c, h, w]
         x = Variable(x.unsqueeze(0))
         print("[Info] x: {}".format(x.shape))
@@ -183,9 +231,10 @@ class ImagePredictor(object):
         score_link = y[0, :, :, 1].cpu().data.numpy()
         print('[Info] score_text: {}, score_link: {}'.format(score_text.shape, score_link.shape))
 
-        img_mask = cv2.resize(score_text, None, fx=ratio_w * 2.0, fy=ratio_h * 2.0)  # 恢复原尺寸
-        img_mask = img_mask[0:oh, 0:ow]
-        img_mask = self.cvt_2_heatmap_img(img_mask)
+        ratio_h = ratio_w = 1 / target_ratio
+        score_text = cv2.resize(score_text, None, fx=ratio_w * 2.0, fy=ratio_h * 2.0)  # 恢复原尺寸
+        score_text = score_text[0:oh, 0:ow]
+        img_mask = ImagePredictor.cvt_2_heatmap_img(score_text)
         show_img_bgr(img_mask)
         print('[Info] img_mask: {}'.format(img_mask.shape))
 
@@ -195,15 +244,106 @@ class ImagePredictor(object):
         img_with_mask = np.clip(img_with_mask, 0, 255).astype(np.uint8)
         show_img_bgr(img_with_mask, save_name=os.path.join(DATA_DIR, "img_with_mask.jpg"))
 
-        heatmap2box(score_text, img_bgr)
+        bboxes, scores, angles = heatmap2box(score_text)
         print('[Info] 处理完成')
+        # draw_box_list(img_bgr, boxes, is_overlap=False, is_show=True, is_text=False,
+        #               save_name=os.path.join(DATA_DIR, "img_with_boxes.jpg"))
+        return bboxes, scores
+
+    @staticmethod
+    def image_to_base64(image_np, ext='.jpg'):
+        """
+        转换为base64, ext是编码格式，'.jpg'和'.png'都支持
+        """
+        import cv2
+        import base64
+
+        # image = cv2.imencode('.png', image_np)[1]
+        image = cv2.imencode(ext, image_np)[1]
+        image_code = str(base64.b64encode(image))[2:-1]  # 生成编码
+        return image_code
+
+    @staticmethod
+    def filter_and_format_bboxes(img_rgb, char_bboxes, char_scores, hw_bboxes, hw_lines, hw_probs):
+        """
+        过滤字符框
+        """
+        hw_char_data = []
+        hw_char_bboxes = []
+        for hw_bbox, hw_line, hw_prob in zip(hw_bboxes, hw_lines, hw_probs):
+            hw_char_list, hw_score_list = [], []
+            for char_bbox, char_score in zip(char_bboxes, char_scores):
+                v_iou = min_iou(char_bbox, hw_bbox)
+                if v_iou > 0.5:
+                    hw_char_list.append(char_bbox)
+                    hw_char_list, _, _ = sorted_boxes_by_row(hw_char_list)
+                    hw_char_list = unfold_nested_list(hw_char_list)
+                    hw_score_list.append(char_score)
+                    hw_char_bboxes.append(char_bbox)  # 整体的char框bbox
+            print('[Info] hw_char_list: {}, hw_line: {} - {}'
+                  .format(len(hw_char_list), len(hw_line), hw_line))
+
+            for char_idx, (char_box, char_score) in enumerate(zip(hw_char_list, hw_score_list)):
+                img_char = get_cropped_patch(img_rgb, char_box)
+                content = image_to_base64(img_char)
+                char_data_dict = dict()
+                char_data_dict["position"] = char_box
+                char_data_dict["content"] = content
+                char_data_dict["content_size"] = img_char.shape
+                if len(hw_char_list) == len(hw_line):
+                    char_data_dict["model_output_text"] = hw_line[char_idx]
+                else:
+                    char_data_dict["model_output_text"] = ""
+                char_data_dict["bbox_score"] = round(char_score, 2)
+                char_data_dict["hw_score"] = float(hw_prob) / float(100)
+                hw_char_data.append(char_data_dict)
+
+        print('[Info] num of char bboxes: {}'.format(len(hw_char_data)))
+        return hw_char_data, hw_char_bboxes
 
     def process(self):
         print('[Info] 处理开始!')
-        img_path = os.path.join(DATA_DIR, 'imgs', '0001.png')
+        # img_path = os.path.join(DATA_DIR, 'imgs', 'hwg_0000000.jpg')
+        img_path = os.path.join(DATA_DIR, 'imgs', '0001.jpg')
+        # img_path = os.path.join(DATA_DIR, 'imgs', 'test1.png')
+        # img_path = os.path.join(DATA_DIR, 'imgs', '190101_00_1_0.jpg')
+        # img_path = os.path.join(DATA_DIR, 'imgs', 'hw-zhengzhi-200101_00_1_0.jpg')
+        out_dir = os.path.join(DATA_DIR, 'tmps')
+        mkdir_if_not_exist(out_dir)
+
         print('[Info] 图像路径: {}'.format(img_path))
         img_rgb = self.load_rgb_image(img_path)
-        self.predict_img(img_rgb)
+        print('[Info] img_rgb: {}'.format(img_rgb.shape))
+        img_bgr = img_rgb[:, :, ::-1]
+
+        char_bboxes, char_scores = self.predict_char_bboxes(img_rgb)
+        out_char_bboxes = os.path.join(out_dir, 'char_bboxes.jpg')
+        draw_box_list(img_bgr, char_bboxes, color=(255, 0, 0),
+                      is_text=False, is_overlap=False, save_name=out_char_bboxes)
+        print('[Info] 绘制字符框: {}'.format(out_char_bboxes))
+
+        hw_bboxes, hw_lines, hw_probs = self.predict_hw_boxes(img_rgb)
+        out_hw_bboxes = os.path.join(out_dir, 'hw_bboxes.jpg')
+        draw_box_list(img_bgr, hw_bboxes, color=(0, 0, 255),
+                      is_overlap=False, is_text=False, save_name=out_hw_bboxes)
+        print('[Info] 绘制手写框: {}'.format(out_hw_bboxes))
+
+        hw_char_data, hw_char_bboxes = self.filter_and_format_bboxes(
+            img_rgb, char_bboxes, char_scores, hw_bboxes, hw_lines, hw_probs)
+
+        out_hw_char_bboxes = os.path.join(out_dir, 'hw_char_bboxes.jpg')
+        draw_box_list(img_bgr, hw_char_bboxes, color=(0, 255, 0),
+                      is_overlap=False, is_text=False, save_name=out_hw_char_bboxes)
+
+        for idx, hw_char_bbox in enumerate(hw_char_bboxes):
+            if idx == 10:
+                break
+            img_patch = get_cropped_patch(img_bgr, hw_char_bbox)
+            img_patch = cv2.resize(img_patch, None, fx=10.0, fy=10.0)
+            img_patch_path = os.path.join(out_dir, '{}.jpg'.format(idx))
+            cv2.imwrite(img_patch_path, img_patch)
+
+        print('[Info] 处理完成!')
 
 
 def main():

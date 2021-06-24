@@ -5,12 +5,8 @@ Copyright (c) 2021. All rights reserved.
 Created by C. L. Wang on 27.5.21
 """
 
-import os
-import copy
 import math
 
-import cv2
-import numpy as np
 import pyclipper
 from shapely.geometry import Polygon
 
@@ -109,92 +105,7 @@ def get_mini_boxes(contour, aspect_ratio):
     return box, h, polygon_area
 
 
-PIXEL_MAX = 255
-SAMPLE_MARGIN = 5
-
-
-def sample_curve_points(poly_pts, poly_mask, h, w, sample_point_count):
-    poly_left_ = np.amin(poly_pts, 0)[0]
-    poly_right_ = np.amax(poly_pts, 0)[0]
-    poly_width_ = poly_right_ - poly_left_  # 多边形的最大宽度
-
-    pt_x_interval_ = int((poly_width_ - (2*SAMPLE_MARGIN)
-                          ) / (sample_point_count + 1))
-
-    ret_bottom_pts_ = []
-
-    for i in range(sample_point_count + 2):
-        x_ = poly_left_ + SAMPLE_MARGIN + i * pt_x_interval_
-        if x_ >= poly_right_ or x_ >= w:
-            break
-        non_zeros_ = np.nonzero(poly_mask[:, x_])
-        if non_zeros_[0].size == 0:
-            break
-        y_bottom_ = np.amax(non_zeros_)
-        ret_bottom_pts_.append([x_, y_bottom_])
-
-    return ret_bottom_pts_
-
-
-def get_curly_text_rect(src_img, output):
-    src_point0 = [int(output[0][0]), int(output[0][1])]
-    src_point1 = [int(output[1][0]), int(output[1][1])]
-    src_point2 = [int(output[2][0]), int(output[2][1])]
-    dst_point0 = [0, 0]
-    dst_point1 = [int(output[1][0]) - int(output[0][0]), 0]
-    dst_point2 = [int(output[2][0]) - int(output[3][0]),
-                  int(output[2][1]) - int(output[1][1])]
-    cols = int(int(output[1][0]) - int(output[0][0]))
-    rows = max((int(output[3][1]) - int(output[0][1])),
-               (int(output[2][1]) - int(output[1][1])))
-
-    pts1 = np.float32([src_point0, src_point1, src_point2])
-    pts2 = np.float32([dst_point0, dst_point1, dst_point2])
-    M_affine = cv2.getAffineTransform(pts1, pts2)
-
-    ret = cv2.warpAffine(src_img, M_affine, (cols, rows))
-    return ret
-
-
-def is_curly_text(poly_pts, h, w, out_box_region_size_, quad):
-    poly_left_ = np.amin(poly_pts, 0)[0]
-    poly_right_ = np.amax(poly_pts, 0)[0]
-
-    poly_top_ = np.amin(poly_pts, 0)[1]
-    poly_bottom_ = np.amax(poly_pts, 0)[1]
-    poly_height_ = abs(poly_bottom_ - poly_top_)
-
-    poly_width_ = poly_right_ - poly_left_  # 多边形的最大宽度
-    poly_width_ratio_ = poly_width_ / float(w)
-
-    if poly_width_ratio_ <= 0.3 or poly_height_ < 15:
-        return False, [], None, None
-
-    poly_mask_ = np.zeros((h, w), np.uint8)
-    cv2.fillPoly(poly_mask_, [poly_pts], 1)
-
-    poly_mask_small_ = get_curly_text_rect(poly_mask_, quad)
-    poly_region_size_ = np.sum(poly_mask_small_, dtype=np.uint32)  # 多边形的面积
-
-    region_box_ratio_ = poly_region_size_ / \
-        float(out_box_region_size_)  # 多边形面积占最小外接矩阵的比例
-
-    if region_box_ratio_ >= 0.7:
-        return False, [], None, None
-
-    poly_region_heights_ = np.sum(poly_mask_small_, 0, np.uint32)
-    poly_region_heights_ = poly_region_heights_[
-        np.nonzero(poly_region_heights_)]
-    poly_height_std_ = np.std(poly_region_heights_)
-    poly_height_mean_ = np.max(poly_region_heights_)
-    if (poly_height_std_ >= 4.0 or poly_height_mean_ < 15) and region_box_ratio_ >= 0.6:
-        return False, [], None, None
-
-    bottom_pts_ = sample_curve_points(poly_pts, poly_mask_, h, w, 12)
-    return True, bottom_pts_, poly_height_mean_, poly_mask_
-
-
-def boxes_from_bitmap(img_bgr, pred, box_thresh, min_size_ratio, aspect_ratio, unclip_ratio, min_size, binary_thresh):
+def boxes_from_bitmap(pred, box_thresh, min_size_ratio, aspect_ratio, unclip_ratio, min_size, binary_thresh):
     """
     使用特征图生成最终离散的检测结果
     param pred: 特征图
@@ -203,21 +114,10 @@ def boxes_from_bitmap(img_bgr, pred, box_thresh, min_size_ratio, aspect_ratio, u
     param unclip_ratio: BBox放大比例
     """
     print("[Info] binary_thresh: {}".format(binary_thresh))
+    print("[Info] min_size_ratio: {}".format(min_size_ratio))
     # 生成分割结果
     _, bitmap = cv2.threshold((pred * 255).astype(np.uint8), binary_thresh, 255, cv2.THRESH_BINARY)
     contours, _ = cv2.findContours(bitmap, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE, hierarchy=None)[-2:]
-
-    # new_contours = []
-    # for contour in contours:
-    #     points = contour.reshape((-1, 2))
-    #     if points.shape[0] < 4:
-    #         continue
-    #     new_contour = scale_contour(contour, 1.5)
-    #     new_contours.append(new_contour)
-
-    # img_bgr = cv2.drawContours(img_bgr, new_contours, -1, (0, 255, 0), 2)
-    # from root_dir import DATA_DIR
-    # show_img_bgr(img_bgr, save_name=os.path.join(DATA_DIR, "img_contours.jpg"))
 
     height, width = pred.shape
 
@@ -229,12 +129,12 @@ def boxes_from_bitmap(img_bgr, pred, box_thresh, min_size_ratio, aspect_ratio, u
         points = contour.reshape((-1, 2))
         if points.shape[0] < 4:
             continue
+
         boxes = unclip(points, unclip_ratio)
         for box in boxes:
             box = np.array(box)
             box[:, 0] = np.clip(box[:, 0], 0, width - 1)
             box[:, 1] = np.clip(box[:, 1], 0, height - 1)
-            poly_pts_ = copy.deepcopy(box)
 
             quad, sside, out_box_region_size_ = get_mini_boxes(box.reshape((-1, 1, 2)), aspect_ratio)
             if sside < max(min_size_ratio * (height + width), min_size):
@@ -249,25 +149,29 @@ def boxes_from_bitmap(img_bgr, pred, box_thresh, min_size_ratio, aspect_ratio, u
             res_scores.append(float(score))
             res_angles.append(int(angle))
 
-    from root_dir import DATA_DIR
-    draw_box_list(img_bgr, res_boxes, thickness=2, is_text=False, save_name=os.path.join(DATA_DIR, "img_boxes.jpg"))
+    print('[Info] 框数量: {}'.format(len(res_boxes)))
     return res_boxes, res_scores, res_angles
 
 
-def heatmap2box(heatmap, img_bgr):
+def heatmap2box(heatmap):
     """
     heatmap的值从0~1
     """
     heatmap = np.clip(heatmap, 0, 1)
-    box_thresh = 0.3
-    min_size_ratio = 0.015
+    box_thresh = 0.4
+    # box_thresh = 0.001
+    min_size_ratio = 0.001
     aspect_ratio = 1
     unclip_ratio = 2.0
     min_size = 12
     binary_thresh = int(255 * 0.6)
 
-    ret = boxes_from_bitmap(img_bgr, heatmap, box_thresh, min_size_ratio, aspect_ratio,
-                            unclip_ratio, min_size, binary_thresh)
+    # 框来源于图像
+    boxes, scores, angles = boxes_from_bitmap(
+        heatmap, box_thresh, min_size_ratio, aspect_ratio,
+        unclip_ratio, min_size, binary_thresh)
+
+    return boxes, scores, angles
 
 
 def main():

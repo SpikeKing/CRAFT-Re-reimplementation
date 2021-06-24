@@ -264,9 +264,9 @@ class craft_base_dataset(data.Dataset):
 
 #         for j in range(len(bboxes)):
 #             ones = np.ones((4, 1))
-#             tmp = np.concatenate([bboxes[j], ones], axis=-1)
+#             tmps = np.concatenate([bboxes[j], ones], axis=-1)
 #             I = np.matrix(MM).I
-#             ori = np.matmul(I, tmp.transpose(1, 0)).transpose(1, 0)
+#             ori = np.matmul(I, tmps.transpose(1, 0)).transpose(1, 0)
 #             bboxes[j] = ori[:, :2]
 
         bboxes[:, :, 1] = np.clip(bboxes[:, :, 1], 0., image.shape[0] - 1)
