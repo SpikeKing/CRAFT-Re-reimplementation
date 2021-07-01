@@ -37,7 +37,8 @@ def getDetBoxes_core(textmap, linkmap, text_threshold, link_threshold, low_text)
         if size < 10: continue
 
         # thresholding
-        if np.max(textmap[labels==k]) < text_threshold: continue
+        if np.max(textmap[labels==k]) < text_threshold:
+            continue
 
         # make segmentation map
         segmap = np.zeros(textmap.shape, dtype=np.uint8)

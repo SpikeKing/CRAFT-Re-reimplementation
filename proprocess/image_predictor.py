@@ -13,6 +13,8 @@ import torch
 import torch.backends.cudnn as cudnn
 from torch.autograd import Variable
 
+import craft_utils
+
 p = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if p not in sys.path:
     sys.path.append(p)
@@ -197,7 +199,32 @@ class ImagePredictor(object):
         # draw_box_list(img_bgr, box_list=bbox_list, is_show=True)
         return hw_bboxes, hw_lines, hw_probs
 
-    def predict_char_bboxes(self, img_rgb):
+    def predict_feature_map(self, img_rgb):
+        """
+        预测FeatureMap
+        """
+        x = self.normalize_mean_var(img_rgb)
+        x = torch.from_numpy(x).permute(2, 0, 1)  # [h, w, c] to [c, h, w]
+        x = Variable(x.unsqueeze(0))
+        print("[Info] x: {}".format(x.shape))
+        if self.cuda:
+            x = x.cuda()
+
+        # forward pass
+        pred_s_time = time.time()
+        y, _ = self.net(x)
+        pred_time = time.time() - pred_s_time
+        print('[Info] y: {}, elapsed: {} ms'.format(y.shape, pred_time))
+
+        score_text = y[0, :, :, 0].cpu().data.numpy()
+        score_link = y[0, :, :, 1].cpu().data.numpy()
+        print('[Info] score_text: {}, score_link: {}'.format(score_text.shape, score_link.shape))
+        return score_text, score_link
+
+    def predict_en_word_bboxes(self, img_rgb):
+        """
+        预测英语词框
+        """
         print('[Info] img_rgb: {}'.format(img_rgb.shape))
         oh, ow, _ = img_rgb.shape
         # show_img_bgr(img_rgb[:, :, ::-1])
@@ -214,22 +241,69 @@ class ImagePredictor(object):
         print("[Info] target_ratio: {}".format(target_ratio))
         print("[Info] size_heatmap: {}".format(size_heatmap))
 
-        x = self.normalize_mean_var(image_resized)
-        x = torch.from_numpy(x).permute(2, 0, 1)  # [h, w, c] to [c, h, w]
-        x = Variable(x.unsqueeze(0))
-        print("[Info] x: {}".format(x.shape))
-        if self.cuda:
-            x = x.cuda()
+        score_text, score_link = self.predict_feature_map(image_resized)  # 预测特征图
 
-        # forward pass
-        pred_s_time = time.time()
-        y, _ = self.net(x)
-        pred_time = time.time() - pred_s_time
-        print('[Info] y: {}, elapsed: {} ms'.format(y.shape, pred_time))
+        # 参数
+        text_thresh = 0.4  # 默认0.7
+        link_thresh = 0.4
+        low_text = 0.2  # 默认0.4
+        poly = False
+        boxes, polys = craft_utils.getDetBoxes(score_text, score_link, text_thresh, link_thresh, low_text, poly)
 
-        score_text = y[0, :, :, 0].cpu().data.numpy()
-        score_link = y[0, :, :, 1].cpu().data.numpy()
-        print('[Info] score_text: {}, score_link: {}'.format(score_text.shape, score_link.shape))
+        ratio_h = ratio_w = 1 / target_ratio
+        boxes = craft_utils.adjustResultCoordinates(boxes, ratio_w, ratio_h)
+        polys = craft_utils.adjustResultCoordinates(polys, ratio_w, ratio_h)
+        for k in range(len(polys)):
+            if polys[k] is None:
+                polys[k] = boxes[k]
+
+        bboxes = []
+        for i in range(len(boxes)):
+            rec = boxes[i].astype(np.int)
+            bboxes.append(rec2bbox(rec))
+
+        fake_scores = [1.0 for i in range(len(boxes))]
+
+        return bboxes, fake_scores
+
+    def predict_char_bboxes(self, img_rgb):
+        """
+        预测中文汉字
+        """
+        print('[Info] img_rgb: {}'.format(img_rgb.shape))
+        oh, ow, _ = img_rgb.shape
+        # show_img_bgr(img_rgb[:, :, ::-1])
+
+        # 第一步
+        square_size = 1120
+        mag_ratio = 2.0
+        interpolation = cv2.INTER_LINEAR
+
+        image_resized, target_ratio, size_heatmap = \
+            ImagePredictor.resize_aspect_ratio(img_rgb, square_size, interpolation, mag_ratio)
+        # show_img_bgr(img_resized[:, :, ::-1].astype(np.uint8))
+        print("[Info] img_resized: {}".format(image_resized.shape))
+        print("[Info] target_ratio: {}".format(target_ratio))
+        print("[Info] size_heatmap: {}".format(size_heatmap))
+
+        score_text, score_link = self.predict_feature_map(image_resized)  # 预测特征图
+
+        # x = self.normalize_mean_var(image_resized)
+        # x = torch.from_numpy(x).permute(2, 0, 1)  # [h, w, c] to [c, h, w]
+        # x = Variable(x.unsqueeze(0))
+        # print("[Info] x: {}".format(x.shape))
+        # if self.cuda:
+        #     x = x.cuda()
+        #
+        # # forward pass
+        # pred_s_time = time.time()
+        # y, _ = self.net(x)
+        # pred_time = time.time() - pred_s_time
+        # print('[Info] y: {}, elapsed: {} ms'.format(y.shape, pred_time))
+        #
+        # score_text = y[0, :, :, 0].cpu().data.numpy()
+        # score_link = y[0, :, :, 1].cpu().data.numpy()
+        # print('[Info] score_text: {}, score_link: {}'.format(score_text.shape, score_link.shape))
 
         ratio_h = ratio_w = 1 / target_ratio
         score_text = cv2.resize(score_text, None, fx=ratio_w * 2.0, fy=ratio_h * 2.0)  # 恢复原尺寸
@@ -304,10 +378,10 @@ class ImagePredictor(object):
     def process(self):
         print('[Info] 处理开始!')
         # img_path = os.path.join(DATA_DIR, 'imgs', 'hwg_0000000.jpg')
-        img_path = os.path.join(DATA_DIR, 'imgs', '0001.jpg')
+        # img_path = os.path.join(DATA_DIR, 'imgs', '0001.jpg')
         # img_path = os.path.join(DATA_DIR, 'imgs', 'test1.png')
         # img_path = os.path.join(DATA_DIR, 'imgs', '190101_00_1_0.jpg')
-        # img_path = os.path.join(DATA_DIR, 'imgs', 'hw-zhengzhi-200101_00_1_0.jpg')
+        img_path = os.path.join(DATA_DIR, 'imgs', 'IMG_20210519_092552.jpg')
         out_dir = os.path.join(DATA_DIR, 'tmps')
         mkdir_if_not_exist(out_dir)
 
@@ -316,7 +390,8 @@ class ImagePredictor(object):
         print('[Info] img_rgb: {}'.format(img_rgb.shape))
         img_bgr = img_rgb[:, :, ::-1]
 
-        char_bboxes, char_scores = self.predict_char_bboxes(img_rgb)
+        # char_bboxes, char_scores = self.predict_char_bboxes(img_rgb)
+        char_bboxes, char_scores = self.predict_en_word_bboxes(img_rgb)
         out_char_bboxes = os.path.join(out_dir, 'char_bboxes.jpg')
         draw_box_list(img_bgr, char_bboxes, color=(255, 0, 0),
                       is_text=False, is_overlap=False, save_name=out_char_bboxes)
@@ -347,8 +422,11 @@ class ImagePredictor(object):
 
 
 def main():
-    ip = ImagePredictor()
-    ip.process()
+    # ip = ImagePredictor()
+    # ip.process()
+    url = "http://sm-transfer.oss-cn-hangzhou.aliyuncs.com/zhengsheng.wcl/Character-Detection/CRAFT/tmps/IMG_20210519_092552.jpg"
+    _, img = download_url_img(url)
+    print(img.shape)
 
 
 if __name__ == '__main__':

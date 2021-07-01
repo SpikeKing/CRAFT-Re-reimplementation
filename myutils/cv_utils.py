@@ -740,6 +740,7 @@ def rec2bbox(rec):
     x_min, x_max = min(x_list), max(x_list)
     y_min, y_max = min(y_list), max(y_list)
     box = [x_min, y_min, x_max, y_max]
+    box = [int(x) for x in box]
     return box
 
 
@@ -828,21 +829,26 @@ def draw_box_list(img_bgr, box_list, thickness=2, color=None,
     return ori_img
 
 
-def draw_rec_list(img_bgr, rec_list, is_text=True, is_show=False, is_new=False, save_name=None):
+def draw_rec_list(img_bgr, rec_list, thickness=2, color=None,
+                  is_overlap=True, is_text=True, is_show=False, is_new=False, save_name=None):
     """
     绘制4点的四边形
     """
     if is_new:
         img_bgr = copy.deepcopy(img_bgr)
 
-    n_rec = len(rec_list)
-    color_list = generate_colors(n_rec)  # 随机生成颜色
+    n_box = len(rec_list)
+    if not color:
+        color_list = generate_colors(n_box)  # 随机生成颜色
+    else:
+        color_list = [color] * n_box  # 颜色范围
+
     ori_img = copy.copy(img_bgr)
     img_copy = copy.copy(img_bgr)
 
     # 绘制颜色块
     for idx, (rec, color) in enumerate(zip(rec_list, color_list)):
-        rec_arr = np.array(rec)
+        rec_arr = np.array(rec).astype(np.int32)
         ori_img = cv2.fillPoly(ori_img, [rec_arr], color_list[idx])
         # x_min, y_min, x_max, y_max = box
         # ori_img = cv2.rectangle(ori_img, pt1=(x_min, y_min), pt2=(x_max, y_max), color=(color), thickness=-1)
