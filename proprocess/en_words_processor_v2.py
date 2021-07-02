@@ -96,8 +96,8 @@ class EnWordsProcessorV2(object):
             for idx, data in enumerate(data_list):
                 param = [idx, img_bgr, data, img_url, self.out_file, self.err_file]
                 param_list.append(param)
-            if img_idx == 10:
-                break
+            # if img_idx == 10:
+            #     break
             print('[Info] img_idx: {}'.format(img_idx))
         print('[Info] 样本处理完成: {}'.format(len(param_list)))
 
