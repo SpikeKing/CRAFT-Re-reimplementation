@@ -101,13 +101,13 @@ class EnWordsProcessorV2(object):
             print('[Info] img_idx: {}'.format(img_idx))
         print('[Info] 样本处理完成: {}'.format(len(param_list)))
 
-        for param in param_list:
-            EnWordsProcessorV2.process_line_process(param)
+        # for param in param_list:
+        #     EnWordsProcessorV2.process_line_process(param)
 
-        # pool = Pool(processes=5)
-        # pool.map(EnWordsProcessorV2.process_line_process, param_list)
-        # pool.close()
-        # pool.join()
+        pool = Pool(processes=5)
+        pool.map(EnWordsProcessorV2.process_line_process, param_list)
+        pool.close()
+        pool.join()
         print('[Info] 全部处理完成: {}'.format(self.out_file))
 
 
