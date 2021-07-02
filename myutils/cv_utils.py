@@ -850,10 +850,8 @@ def draw_rec_list(img_bgr, rec_list, thickness=2, color=None,
     for idx, (rec, color) in enumerate(zip(rec_list, color_list)):
         rec_arr = np.array(rec).astype(np.int32)
         ori_img = cv2.fillPoly(ori_img, [rec_arr], color_list[idx])
-        # x_min, y_min, x_max, y_max = box
-        # ori_img = cv2.rectangle(ori_img, pt1=(x_min, y_min), pt2=(x_max, y_max), color=(color), thickness=-1)
 
-    ori_img = cv2.addWeighted(ori_img, 0.5, img_copy, 0.5, 0)
+    ori_img = cv2.addWeighted(ori_img, 0.4, img_copy, 0.6, 0)
     ori_img = np.clip(ori_img, 0, 255)
 
     # 绘制方向和序号

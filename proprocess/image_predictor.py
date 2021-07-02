@@ -229,14 +229,12 @@ class ImagePredictor(object):
         oh, ow, _ = img_rgb.shape
         # show_img_bgr(img_rgb[:, :, ::-1])
 
-        # 第一步
         square_size = 1120
         mag_ratio = 2.0
         interpolation = cv2.INTER_LINEAR
 
         image_resized, target_ratio, size_heatmap = \
             ImagePredictor.resize_aspect_ratio(img_rgb, square_size, interpolation, mag_ratio)
-        # show_img_bgr(img_resized[:, :, ::-1].astype(np.uint8))
         print("[Info] img_resized: {}".format(image_resized.shape))
         print("[Info] target_ratio: {}".format(target_ratio))
         print("[Info] size_heatmap: {}".format(size_heatmap))
@@ -244,9 +242,9 @@ class ImagePredictor(object):
         score_text, score_link = self.predict_feature_map(image_resized)  # 预测特征图
 
         # 参数
-        text_thresh = 0.4  # 默认0.7
+        text_thresh = 0.7  # 默认0.7
         link_thresh = 0.4
-        low_text = 0.2  # 默认0.4
+        low_text = 0.4  # 默认0.4
         poly = False
         boxes, polys = craft_utils.getDetBoxes(score_text, score_link, text_thresh, link_thresh, low_text, poly)
 
@@ -257,14 +255,13 @@ class ImagePredictor(object):
             if polys[k] is None:
                 polys[k] = boxes[k]
 
-        bboxes = []
+        rec_boxes = []  # 4点boxes
         for i in range(len(boxes)):
             rec = boxes[i].astype(np.int)
-            bboxes.append(rec2bbox(rec))
+            rec_boxes.append(rec)
 
-        fake_scores = [1.0 for i in range(len(boxes))]
-
-        return bboxes, fake_scores
+        print('[Info] rec_boxes: {}'.format(len(rec_boxes)))
+        return rec_boxes
 
     def predict_char_bboxes(self, img_rgb):
         """
@@ -281,29 +278,11 @@ class ImagePredictor(object):
 
         image_resized, target_ratio, size_heatmap = \
             ImagePredictor.resize_aspect_ratio(img_rgb, square_size, interpolation, mag_ratio)
-        # show_img_bgr(img_resized[:, :, ::-1].astype(np.uint8))
         print("[Info] img_resized: {}".format(image_resized.shape))
         print("[Info] target_ratio: {}".format(target_ratio))
         print("[Info] size_heatmap: {}".format(size_heatmap))
 
         score_text, score_link = self.predict_feature_map(image_resized)  # 预测特征图
-
-        # x = self.normalize_mean_var(image_resized)
-        # x = torch.from_numpy(x).permute(2, 0, 1)  # [h, w, c] to [c, h, w]
-        # x = Variable(x.unsqueeze(0))
-        # print("[Info] x: {}".format(x.shape))
-        # if self.cuda:
-        #     x = x.cuda()
-        #
-        # # forward pass
-        # pred_s_time = time.time()
-        # y, _ = self.net(x)
-        # pred_time = time.time() - pred_s_time
-        # print('[Info] y: {}, elapsed: {} ms'.format(y.shape, pred_time))
-        #
-        # score_text = y[0, :, :, 0].cpu().data.numpy()
-        # score_link = y[0, :, :, 1].cpu().data.numpy()
-        # print('[Info] score_text: {}, score_link: {}'.format(score_text.shape, score_link.shape))
 
         ratio_h = ratio_w = 1 / target_ratio
         score_text = cv2.resize(score_text, None, fx=ratio_w * 2.0, fy=ratio_h * 2.0)  # 恢复原尺寸
@@ -320,8 +299,6 @@ class ImagePredictor(object):
 
         bboxes, scores, angles = heatmap2box(score_text)
         print('[Info] 处理完成')
-        # draw_box_list(img_bgr, boxes, is_overlap=False, is_show=True, is_text=False,
-        #               save_name=os.path.join(DATA_DIR, "img_with_boxes.jpg"))
         return bboxes, scores
 
     @staticmethod
@@ -391,42 +368,42 @@ class ImagePredictor(object):
         img_bgr = img_rgb[:, :, ::-1]
 
         # char_bboxes, char_scores = self.predict_char_bboxes(img_rgb)
-        char_bboxes, char_scores = self.predict_en_word_bboxes(img_rgb)
-        out_char_bboxes = os.path.join(out_dir, 'char_bboxes.jpg')
-        draw_box_list(img_bgr, char_bboxes, color=(255, 0, 0),
-                      is_text=False, is_overlap=False, save_name=out_char_bboxes)
-        print('[Info] 绘制字符框: {}'.format(out_char_bboxes))
+        rec_bboxes = self.predict_en_word_bboxes(img_rgb)
+        word_rec_boxes_path = os.path.join(out_dir, 'word_rec_boxes.jpg')
+        draw_rec_list(img_bgr, rec_bboxes, color=(255, 0, 0),
+                      is_text=False, is_overlap=False, save_name=word_rec_boxes_path)
+        print('[Info] 绘制字符框: {}'.format(word_rec_boxes_path))
 
-        hw_bboxes, hw_lines, hw_probs = self.predict_hw_boxes(img_rgb)
-        out_hw_bboxes = os.path.join(out_dir, 'hw_bboxes.jpg')
-        draw_box_list(img_bgr, hw_bboxes, color=(0, 0, 255),
-                      is_overlap=False, is_text=False, save_name=out_hw_bboxes)
-        print('[Info] 绘制手写框: {}'.format(out_hw_bboxes))
-
-        hw_char_data, hw_char_bboxes = self.filter_and_format_bboxes(
-            img_rgb, char_bboxes, char_scores, hw_bboxes, hw_lines, hw_probs)
-
-        out_hw_char_bboxes = os.path.join(out_dir, 'hw_char_bboxes.jpg')
-        draw_box_list(img_bgr, hw_char_bboxes, color=(0, 255, 0),
-                      is_overlap=False, is_text=False, save_name=out_hw_char_bboxes)
-
-        for idx, hw_char_bbox in enumerate(hw_char_bboxes):
-            if idx == 10:
-                break
-            img_patch = get_cropped_patch(img_bgr, hw_char_bbox)
-            img_patch = cv2.resize(img_patch, None, fx=10.0, fy=10.0)
-            img_patch_path = os.path.join(out_dir, '{}.jpg'.format(idx))
-            cv2.imwrite(img_patch_path, img_patch)
+        # hw_bboxes, hw_lines, hw_probs = self.predict_hw_boxes(img_rgb)
+        # out_hw_bboxes = os.path.join(out_dir, 'hw_bboxes.jpg')
+        # draw_box_list(img_bgr, hw_bboxes, color=(0, 0, 255),
+        #               is_overlap=False, is_text=False, save_name=out_hw_bboxes)
+        # print('[Info] 绘制手写框: {}'.format(out_hw_bboxes))
+        #
+        # hw_char_data, hw_char_bboxes = self.filter_and_format_bboxes(
+        #     img_rgb, char_bboxes, char_scores, hw_bboxes, hw_lines, hw_probs)
+        #
+        # out_hw_char_bboxes = os.path.join(out_dir, 'hw_char_bboxes.jpg')
+        # draw_box_list(img_bgr, hw_char_bboxes, color=(0, 255, 0),
+        #               is_overlap=False, is_text=False, save_name=out_hw_char_bboxes)
+        #
+        # for idx, hw_char_bbox in enumerate(hw_char_bboxes):
+        #     if idx == 10:
+        #         break
+        #     img_patch = get_cropped_patch(img_bgr, hw_char_bbox)
+        #     img_patch = cv2.resize(img_patch, None, fx=10.0, fy=10.0)
+        #     img_patch_path = os.path.join(out_dir, '{}.jpg'.format(idx))
+        #     cv2.imwrite(img_patch_path, img_patch)
 
         print('[Info] 处理完成!')
 
 
 def main():
-    # ip = ImagePredictor()
-    # ip.process()
-    url = "http://sm-transfer.oss-cn-hangzhou.aliyuncs.com/zhengsheng.wcl/Character-Detection/CRAFT/tmps/IMG_20210519_092552.jpg"
-    _, img = download_url_img(url)
-    print(img.shape)
+    ip = ImagePredictor()
+    ip.process()
+    # url = "http://sm-transfer.oss-cn-hangzhou.aliyuncs.com/zhengsheng.wcl/Character-Detection/CRAFT/tmps/IMG_20210519_092552.jpg"
+    # _, img = download_url_img(url)
+    # print(img.shape)
 
 
 if __name__ == '__main__':

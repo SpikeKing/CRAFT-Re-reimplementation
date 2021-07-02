@@ -21,11 +21,10 @@ from root_dir import DATA_DIR
 
 class EnWordsProcessor(object):
     def __init__(self):
-        self.imgs_file_path = os.path.join(DATA_DIR, '汪旭阳-英语作文-2290.txt')
-        self.tmp_file_path = os.path.join(DATA_DIR, '汪旭阳-英语作文-2290.tmp.txt')
-        self.out_file_path = os.path.join(DATA_DIR, '汪旭阳-英语作文-2290.out.txt')
-        create_file(self.out_file_path)
-        self.error_file_path = os.path.join(DATA_DIR, '汪旭阳-英语作文-2290.error.txt')
+        self.imgs_file_path = os.path.join(DATA_DIR, '第二批_高新+英语649.txt')
+        self.tmp_file_path = os.path.join(DATA_DIR, '第二批_高新+英语649.tmp.txt')
+        self.out_file_path = os.path.join(DATA_DIR, '第二批_高新+英语649.out.txt')
+        self.error_file_path = os.path.join(DATA_DIR, '第二批_高新+英语649.error.txt')
 
     @staticmethod
     def process_url(idx, url, out_path, err_path):
@@ -50,23 +49,25 @@ class EnWordsProcessor(object):
         for idx, data_line in enumerate(data_lines):
             print('[Info] data_line: {}'.format(data_line))
             url = data_line
-            try:
-                res_dict = get_english_words_cutter_service(url)
-                data_dict = res_dict["data"]
-                res_str = json.dumps(data_dict)
+            # try:
+            res_dict = get_english_words_cutter_service(url)
+            print(res_dict)
+            data_dict = res_dict["data"]
+            res_str = json.dumps(data_dict)
 
-                out_list.append(res_str)
-                write_line(self.tmp_file_path, res_str)
-                print('[Info] idx: {}'.format(idx))
-            except Exception as e:
-                err_list.append(url)
-                print('[Info] err: {}'.format(url))
+            out_list.append(res_str)
+            write_line(self.tmp_file_path, res_str)
+            print('[Info] idx: {}'.format(idx))
+            # except Exception as e:
+            #     err_list.append(url)
+            #     print('[Info] err: {}'.format(url))
 
         print('[Info] 数据: {}'.format(len(out_list)))
         write_list_to_file(self.out_file_path, out_list)
         print('[Info] 写入完成: {}'.format(self.out_file_path))
 
     def process_mp(self):
+        # create_file(self.out_file_path)
         data_lines = read_file(self.imgs_file_path)
         data_list = []
         for idx, data_line in enumerate(data_lines):
@@ -78,10 +79,24 @@ class EnWordsProcessor(object):
         pool.join()
         print('[Info] 全部处理完成: {}'.format(self.out_file_path))
 
+    def merge_file(self):
+        file1_path = os.path.join(DATA_DIR, '第一批_高新-英语-645.out.txt')
+        file2_path = os.path.join(DATA_DIR, '第二批_高新+英语649.out.txt')
+        out_path = os.path.join(DATA_DIR, '四线格1000.txt')
+        data_lines1 = read_file(file1_path)
+        data_lines2 = read_file(file2_path)
+        data_lines = data_lines1 + data_lines2
+        print('[Info] data_lines: {}'.format(len(data_lines)))
+        data_lines = data_lines[:1000]
+        print('[Info] data_lines: {}'.format(len(data_lines)))
+        write_list_to_file(out_path, data_lines)
+
 
 def main():
     ewp = EnWordsProcessor()
-    ewp.process_mp()
+    # ewp.process_mp()
+    ewp.process()
+    # ewp.merge_file()
 
 
 if __name__ == '__main__':

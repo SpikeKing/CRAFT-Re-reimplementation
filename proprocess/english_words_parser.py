@@ -5,8 +5,6 @@ Copyright (c) 2021. All rights reserved.
 Created by C. L. Wang on 30.6.21
 """
 
-import os
-import json
 from myutils.cv_utils import *
 from myutils.project_utils import *
 from root_dir import DATA_DIR
