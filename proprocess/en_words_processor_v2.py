@@ -50,17 +50,18 @@ class EnWordsProcessorV2(object):
 
     @staticmethod
     def process_line(idx, img_bgr, data, img_url, out_file, err_file):
-        print('[Info] idx: {}'.format(idx))
+        print('[Info] img_url: {}, idx: {}'.format(img_url, idx))
         try:
             img_name = img_url.split('/')[-1]
             pos_data = data['pos']
             # print('[Info] pos: {}'.format(pos_data))
             img_name = "{}_{}.jpg".format(img_name.split('.')[0], idx)
+            print('[Info] img_name: {}'.format(img_name))
             rec_box = EnWordsProcessorV2.parse_pos_2_rec(pos_data)
             bbox = rec2bbox(rec_box)
             img_patch = get_cropped_patch(img_bgr, bbox)
             img_patch_url = EnWordsProcessorV2.save_img_patch(img_patch, img_name)
-            # print('[Info] img_patch_url: {}'.format(img_patch_url))
+            print('[Info] img_patch_url: {}'.format(img_patch_url))
             res_dict = get_english_words_cutter_service(img_patch_url)
             # print('[Info] res_dict: {}'.format(res_dict))
             data_dict = res_dict["data"]
@@ -93,8 +94,7 @@ class EnWordsProcessorV2(object):
             _, img_bgr = download_url_img(img_url)
             # print('[Info] data: {}'.format(data_list))
             for idx, data in enumerate(data_list):
-                tag_str = "{}_{}".format(img_url, idx)
-                param = [tag_str, img_bgr, data, img_url, self.out_file, self.err_file]
+                param = [idx, img_bgr, data, img_url, self.out_file, self.err_file]
                 param_list.append(param)
             if img_idx == 10:
                 break
