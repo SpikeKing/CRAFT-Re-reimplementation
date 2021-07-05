@@ -76,7 +76,7 @@ class EnWordsProcessorV2(object):
             write_line(err_file, img_url)
 
     @staticmethod
-    def process_line_process(data):
+    def process_line_core(data):
         return EnWordsProcessorV2.process_line(data[0], data[1], data[2], data[3], data[4])
 
     def process(self):
@@ -105,15 +105,36 @@ class EnWordsProcessorV2(object):
         #     EnWordsProcessorV2.process_line_process(param)
 
         pool = Pool(processes=5)
-        pool.map(EnWordsProcessorV2.process_line_process, param_list)
+        pool.map(EnWordsProcessorV2.process_line_core, param_list)
         pool.close()
         pool.join()
         print('[Info] 全部处理完成: {}'.format(self.out_file))
 
+    def check_data(self):
+        """
+        检查数据
+        """
+        self.data_path = os.path.join(DATA_DIR, '20210702_行挑选.out.20210705094001.txt')
+        print('[Info] 检查数据: {}'.format(self.data_path))
+        data_lines = read_file(self.data_path)
+        print('[Info] 数量: {}'.format(len(data_lines)))
+        for data_line in data_lines[1:]:
+            print('[Info] data_line: {}'.format(data_line))
+            data_dict = json.loads(data_line)
+            image_url = data_dict['image_url']
+            image_original_url = data_dict['image_original_url']
+            print('[Info] image_url: {}'.format(image_url))
+            print('[Info] image_original_url: {}'.format(image_original_url))
+            boxes = data_dict['boxes']
+            _, img_bgr = download_url_img(image_url)
+            draw_rec_list(img_bgr, boxes, is_text=False, save_name="tmp.jpg")
+            break
+
 
 def main():
     ewp = EnWordsProcessorV2()
-    ewp.process()
+    # ewp.process()
+    ewp.check_data()
 
 
 if __name__ == '__main__':
