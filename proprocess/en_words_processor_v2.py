@@ -49,9 +49,10 @@ class EnWordsProcessorV2(object):
         return img_url
 
     @staticmethod
-    def process_line(idx, img_bgr, data, img_url, out_file, err_file):
+    def process_line(idx, data, img_url, out_file, err_file):
         print('[Info] img_url: {}, idx: {}'.format(img_url, idx))
         try:
+            _, img_bgr = download_url_img(img_url)
             img_name = img_url.split('/')[-1]
             pos_data = data['pos']
             # print('[Info] pos: {}'.format(pos_data))
@@ -76,7 +77,7 @@ class EnWordsProcessorV2(object):
 
     @staticmethod
     def process_line_process(data):
-        return EnWordsProcessorV2.process_line(data[0], data[1], data[2], data[3], data[4], data[5])
+        return EnWordsProcessorV2.process_line(data[0], data[1], data[2], data[3], data[4])
 
     def process(self):
         """
@@ -91,10 +92,9 @@ class EnWordsProcessorV2(object):
         for img_idx, img_url in enumerate(data_dict.keys()):
             # print('[Info] img_url: {}'.format(img_url))
             data_list = data_dict[img_url]
-            _, img_bgr = download_url_img(img_url)
             # print('[Info] data: {}'.format(data_list))
             for idx, data in enumerate(data_list):
-                param = [idx, img_bgr, data, img_url, self.out_file, self.err_file]
+                param = [idx, data, img_url, self.out_file, self.err_file]
                 param_list.append(param)
             # if img_idx == 10:
             #     break
