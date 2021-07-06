@@ -51,6 +51,7 @@ parser.add_argument('--refiner_model', default='weights/craft_refiner_CTW1500.pt
 
 args = parser.parse_args()
 
+# 自定义参数
 # args.trained_model = "mydata/models/Syndata.pth"
 args.trained_model = "mydata/models/craft_mlt_25k.pth"
 args.test_folder = "mydata/imgs/"

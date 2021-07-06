@@ -442,6 +442,37 @@ def show_img_gray(img_gray, save_name=None):
         plt.imsave(save_name, img_gray)
 
 
+def cvt_2_heatmap_img(img_01):
+    """
+    将0-1图像转换为彩色图像
+    """
+    img = (np.clip(img_01, 0, 1) * 255).astype(np.uint8)
+    img = cv2.applyColorMap(img, cv2.COLORMAP_JET)
+    return img
+
+
+def show_img_mask(img_bgr, img_mask01, save_name=None):
+    """
+    展示Mask涂层，img_mask01是0-1的Mask图
+    """
+    import matplotlib.pyplot as plt
+
+    img_copy = copy.copy(img_bgr)
+    h, w, _ = img_copy.shape
+
+    img_mask = cvt_2_heatmap_img(img_mask01)
+    img_mask = cv2.resize(img_mask, (w, h))
+
+    img_out = cv2.addWeighted(img_copy, 0.5, img_mask, 0.5, 0)
+    img_out = np.clip(img_out, 0, 255)
+
+    plt.imshow(img_out)
+    plt.show()
+    if save_name:
+        print('[Info] 存储图像: {}'.format(save_name))
+        plt.imsave(save_name, img_out)
+
+
 def init_vid(vid_path):
     """
     初始化视频
@@ -829,8 +860,7 @@ def draw_box_list(img_bgr, box_list, thickness=2, color=None,
     return ori_img
 
 
-def draw_rec_list(img_bgr, rec_list, thickness=2, color=None,
-                  is_overlap=True, is_text=True, is_show=False, is_new=False, save_name=None):
+def draw_rec_list(img_bgr, rec_list, color=None, is_text=True, is_show=False, is_new=False, save_name=None):
     """
     绘制4点的四边形
     """
@@ -863,6 +893,17 @@ def draw_rec_list(img_bgr, rec_list, thickness=2, color=None,
     if is_show or save_name:
         show_img_bgr(ori_img, save_name=save_name)
     return ori_img
+
+
+def draw_rec_list_np(img_bgr, rec_np, color=None, is_text=True, is_show=False, is_new=False, save_name=None):
+    """
+    绘制rec列表，np格式[Nx4x2]，即N个框
+    """
+    rec_np = rec_np.astype(np.int32)
+    rec_list = rec_np.tolist()
+    img_out = draw_rec_list(
+        img_bgr, rec_list, color=color, is_text=is_text, is_show=is_show, is_new=is_new, save_name=save_name)
+    return img_out
 
 
 def scale_contour(cnt, scale):
