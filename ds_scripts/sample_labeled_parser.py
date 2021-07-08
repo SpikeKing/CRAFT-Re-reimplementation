@@ -173,15 +173,15 @@ class SampleLabeledParser(object):
         data_lines = read_file(file_name)
         print('[Info] 待处理行数: {}'.format(len(data_lines)))
 
-        pool = Pool(processes=5)
+        pool = Pool(processes=20)
         for idx, data_line in enumerate(data_lines):
             # if idx == 2:
             #     break
             # SampleLabeledParser.process_word_line(idx, data_line, out_file)
             pool.apply_async(SampleLabeledParser.process_word_line, (idx, data_line, out_file))
-        print('[Info] 处理完成: {}'.format(out_file))
         pool.close()
         pool.join()
+        print('[Info] 处理完成: {}'.format(out_file))
 
 
 def main():
