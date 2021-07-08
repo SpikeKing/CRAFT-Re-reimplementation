@@ -175,8 +175,8 @@ class SampleLabeledParser(object):
 
         pool = Pool(processes=5)
         for idx, data_line in enumerate(data_lines):
-            if idx == 2:
-                break
+            # if idx == 2:
+            #     break
             # SampleLabeledParser.process_word_line(idx, data_line, out_file)
             pool.apply_async(SampleLabeledParser.process_word_line, (idx, data_line, out_file))
         print('[Info] 处理完成: {}'.format(out_file))
