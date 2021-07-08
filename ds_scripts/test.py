@@ -38,5 +38,12 @@ def main2():
     print(img.shape)
     show_img_bgr(img)
 
+
+def main3():
+    arr = [[1, 2, 3, 4, 5], [1, 3]]
+    arr2 = list(bytes(arr))
+    print("arr2: {}".format(arr2))
+
+
 if __name__ == '__main__':
-    main2()
+    main3()
