@@ -5,9 +5,14 @@ Copyright (c) 2021. All rights reserved.
 Created by C. L. Wang on 24.6.21
 """
 
+import os
+import sys
 from multiprocessing.pool import Pool
-
 import xml.dom.minidom
+
+p = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if p not in sys.path:
+    sys.path.append(p)
 
 from myutils.cv_utils import *
 from myutils.project_utils import *
