@@ -66,7 +66,7 @@ def padding_image(image,imgsize):
     if len(image.shape) == 3:
         img = np.zeros((imgsize, imgsize, len(image.shape)), dtype = np.uint8)
     else:
-        img = np.zeros((imgsize, imgsize), dtype = np.uint8)
+        img = np.zeros((imgsize, imgsize), dtype=np.uint8)
     scale = imgsize / length
     image = cv2.resize(image, dsize=None, fx=scale, fy=scale)
     if len(image.shape) == 3:
@@ -185,7 +185,7 @@ class craft_base_dataset(data.Dataset):
         return (real_len - min(real_len, abs(real_len - pursedo_len))) / real_len
 
     def inference_pursedo_bboxes(self, net, image, word_bbox, word, viz=False):
-
+        is_cpu = False
         word_image, MM = self.crop_image_by_bbox(image, word_bbox)
 
         real_word_without_space = word.replace('\s', '')
@@ -197,7 +197,10 @@ class craft_base_dataset(data.Dataset):
         img_torch = torch.from_numpy(imgproc.normalizeMeanVariance(input, mean=(0.485, 0.456, 0.406),
                                                                    variance=(0.229, 0.224, 0.225)))
         img_torch = img_torch.permute(2, 0, 1).unsqueeze(0)
-        img_torch = img_torch.type(torch.FloatTensor).cuda()
+        if is_cpu:
+            img_torch = img_torch.type(torch.FloatTensor)
+        else:
+            img_torch = img_torch.type(torch.FloatTensor).cuda()
         scores, _ = net(img_torch)
         region_scores = scores[0, :, :, 0].cpu().data.numpy()
         region_scores = np.uint8(np.clip(region_scores, 0, 1) * 255)
@@ -331,6 +334,7 @@ class craft_base_dataset(data.Dataset):
         #     pass
         # else:
         #     return [], [], [], [], np.array([0])
+        # self.viz = True  # 测试
         image, character_bboxes, words, confidence_mask, confidences = self.load_image_gt_and_confidencemask(index)
         if len(confidences) == 0:
             confidences = 1.0
@@ -342,9 +346,11 @@ class craft_base_dataset(data.Dataset):
 
         if len(character_bboxes) > 0:
             region_scores = self.gaussianTransformer.generate_region(region_scores.shape, character_bboxes)
-            affinity_scores, affinity_bboxes = self.gaussianTransformer.generate_affinity(region_scores.shape,
-                                                                                          character_bboxes,
-                                                                                          words)
+            affinity_scores, affinity_bboxes = \
+                self.gaussianTransformer.generate_affinity(region_scores.shape, character_bboxes, words)
+            # from myutils.cv_utils import show_img_mask
+            # show_img_mask(image[:, :, ::-1], region_scores / 255., save_name="tmp7.jpg")
+            # show_img_mask(image[:, :, ::-1], affinity_scores / 255., save_name="tmp8.jpg")
         if self.viz:
             self.saveImage(self.get_imagename(index), image.copy(), character_bboxes, affinity_bboxes, region_scores,
                            affinity_scores,
@@ -373,89 +379,6 @@ class craft_base_dataset(data.Dataset):
         affinity_scores_torch = torch.from_numpy(affinity_scores / 255).float()
         confidence_mask_torch = torch.from_numpy(confidence_mask).float()
         return image, region_scores_torch, affinity_scores_torch, confidence_mask_torch, confidences
-
-import collections
-import json
-from myutils.project_utils import traverse_dir_files, read_file
-from myutils.cv_utils import bbox2rec
-
-class HWFakeDB(craft_base_dataset):
-    def __init__(self, hw_folder, target_size=768, viz=False, debug=False):
-        super(HWFakeDB, self).__init__(target_size, viz, debug)
-        self.hw_folder = hw_folder
-        lbls_paths, _ = traverse_dir_files(self.hw_folder, ext="txt")
-        imgs_paths, _ = traverse_dir_files(self.hw_folder, ext="jpg")
-
-        charbox, imgtxt = [], []
-
-        for lbl_path in lbls_paths:
-            data_lines = read_file(lbl_path)
-            line_dict = collections.defaultdict(list)
-
-            for data_line in data_lines:
-                items = json.loads(data_line)
-                line_num = items[1]
-                word = items[0]
-                bbox = items[2]
-                line_dict[line_num].append([word, bbox2rec(bbox)])  # box转换成rec
-
-            sample_words, sample_boxes = [], []
-            for line_num in line_dict.keys():
-                info_list = line_dict[line_num]
-                words, bbox_list = "", []
-                for info_data in info_list:
-                    word, rec = info_data
-                    words += word
-                    bbox_list.append(rec)
-                bbox_arr = np.array(bbox_list)  # rec转换为数组
-                sample_words.append(words)
-                sample_boxes.append(bbox_arr)
-            sample_boxes_arr = np.concatenate(sample_boxes, axis=0).astype(np.float64)  # 数组合并到一起
-
-            imgtxt.append(sample_words)
-            charbox.append(sample_boxes_arr)
-
-        print('[Info] HWFakeDB加载完成，样本数: {}'.format(len(imgtxt)))
-        self.charbox = charbox
-        self.image = imgs_paths
-        self.imgtxt = imgtxt
-
-    def __getitem__(self, index):
-        return self.pull_item(index)
-
-    def __len__(self):
-        return len(self.imgtxt)
-
-    def get_imagename(self, index):
-        img_name = self.image[index].split('/')[-1]
-        return img_name
-
-    def load_image_gt_and_confidencemask(self, index):
-        '''
-        根据索引加载ground truth
-        :param index:索引
-        :return:bboxes 字符的框，
-        '''
-        img_path = self.image[index]
-        image = cv2.imread(img_path, cv2.IMREAD_COLOR)
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-
-        _charbox = self.charbox[index]
-        image = random_scale(image, _charbox, self.target_size)
-
-        words = self.imgtxt[index]
-        character_bboxes = []
-        total = 0
-        confidences = []
-        for i in range(len(words)):
-            bboxes = _charbox[total:total + len(words[i])]
-            assert (len(bboxes) == len(words[i]))
-            total += len(words[i])
-            bboxes = np.array(bboxes)
-            character_bboxes.append(bboxes)
-            confidences.append(1.0)
-
-        return image, character_bboxes, words, np.ones((image.shape[0], image.shape[1]), np.float32), confidences
 
 
 class Synth80k(craft_base_dataset):
@@ -637,18 +560,27 @@ class ICDAR2015(craft_base_dataset):
         :param index:索引
         :return:bboxes 字符的框，
         '''
-        imagename = self.images_path[index]
-        gt_path = os.path.join(self.gt_folder, "gt_%s.txt" % os.path.splitext(imagename)[0])
+        image_name = self.images_path[index]
+        gt_path = os.path.join(self.gt_folder, "gt_%s.txt" % os.path.splitext(image_name)[0])
         word_bboxes, words = self.load_gt(gt_path)
         word_bboxes = np.float32(word_bboxes)
 
-        image_path = os.path.join(self.img_folder, imagename)
+        image_path = os.path.join(self.img_folder, image_name)
         image = cv2.imread(image_path)
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+        # 测试逻辑
+        # from myutils.cv_utils import show_img_bgr, draw_rec_list_np, show_img_mask
+        # show_img_bgr(image[:, :, ::-1], save_name="tmp1.jpg")
+        # draw_rec_list_np(image[:, :, ::-1], rec_np=word_bboxes, save_name="tmp2.jpg")
 
         image = random_scale(image, word_bboxes, self.target_size)
 
         confidence_mask = np.ones((image.shape[0], image.shape[1]), np.float32)
+        # show_img_mask(image[:, :, ::-1], confidence_mask, save_name="tmp3.jpg")
+
+        # import copy
+        # img_copy = copy.copy(image[:, :, ::-1])
 
         character_bboxes = []
         new_words = []
@@ -656,18 +588,24 @@ class ICDAR2015(craft_base_dataset):
         if len(word_bboxes) > 0:
             for i in range(len(word_bboxes)):
                 if words[i] == '###' or len(words[i].strip()) == 0:
-                    cv2.fillPoly(confidence_mask, [np.int32(word_bboxes[i])], (0))
+                    cv2.fillPoly(confidence_mask, [np.int32(word_bboxes[i])], 0)
+            # show_img_mask(image[:, :, ::-1], confidence_mask, save_name="tmp4.jpg")
+
             for i in range(len(word_bboxes)):
                 if words[i] == '###' or len(words[i].strip()) == 0:
                     continue
-                pursedo_bboxes, bbox_region_scores, confidence = self.inference_pursedo_bboxes(self.net, image,
-                                                                                               word_bboxes[i],
-                                                                                               words[i],
-                                                                                               viz=self.viz)
+                pursedo_bboxes, bbox_region_scores, confidence = \
+                    self.inference_pursedo_bboxes(self.net, image, word_bboxes[i], words[i], viz=self.viz)
                 confidences.append(confidence)
-                cv2.fillPoly(confidence_mask, [np.int32(word_bboxes[i])], (confidence))
+                cv2.fillPoly(confidence_mask, [np.int32(word_bboxes[i])], confidence)
                 new_words.append(words[i])
                 character_bboxes.append(pursedo_bboxes)
+
+                # 测试
+                # img_copy = draw_rec_list_np(img_copy, rec_np=pursedo_bboxes, is_new=False)
+            # show_img_mask(image[:, :, ::-1], confidence_mask, save_name="tmp5.jpg")
+            # show_img_bgr(img_copy, save_name="tmp6.jpg")
+
         return image, character_bboxes, new_words, confidence_mask, confidences
 
     def load_gt(self, gt_path):
@@ -701,6 +639,123 @@ class ICDAR2015(craft_base_dataset):
             bboxes.append(np.array(new_box))
             words.append(word)
         return bboxes, words
+
+
+import json
+from myutils.project_utils import read_file, traverse_dir_files
+
+
+class MyDataset(craft_base_dataset):
+    def __init__(self, net, my_dataset_folder, target_size=768, viz=False, debug=False):
+        super(MyDataset, self).__init__(target_size, viz, debug)
+        self.net = net
+        self.net.eval()
+        self.img_folder = os.path.join(my_dataset_folder, 'images')
+        _, img_names = traverse_dir_files(self.img_folder)
+        self.gt_file = os.path.join(my_dataset_folder, 'word_annotations_content.20210708170309.txt')
+        self.img_boxes_list, self.img_words_list, self.img_name_list = self.parse_gt(self.gt_file, img_names)
+        # image_names = os.listdir(self.img_folder)
+        # self.images_path = []
+        # for image_name in image_names:
+        #     self.images_path.append(image_name)
+
+    def __getitem__(self, index):
+        return self.pull_item(index)
+
+    def __len__(self):
+        return len(self.img_name_list)
+
+    def get_imagename(self, index):
+        return self.img_name_list[index]
+
+    def bbox_list_2_rec_np(self, bbox_list):
+        """
+        bbox转换为rec np
+        """
+        rec_list = []
+        for bbox in bbox_list:
+            x_min, y_min, x_max, y_max = bbox
+            rec_box = [[x_min, y_min], [x_max, y_min], [x_max, y_max], [x_min, y_max]]
+            rec_list.append(rec_box)
+        rec_np = np.array(rec_list)
+        return rec_np
+
+    def parse_gt(self, gt_file, img_names_x):
+        """
+        解析标注文件
+        """
+        data_lines = read_file(gt_file)
+        img_boxes_list, img_words_list, img_name_list = [], [], []
+        for data_line in data_lines:
+            data_dict = json.loads(data_line)
+            image_url = data_dict["image_url"]
+            bbox_list = data_dict["bbox_list"]
+            if len(bbox_list) == 0:
+                continue
+            rec_np = self.bbox_list_2_rec_np(bbox_list)
+            word_list = data_dict["word_list"]
+            image_name = image_url.split('/')[-1]
+            if image_name not in img_names_x:
+                continue
+            img_boxes_list.append(rec_np)
+            img_words_list.append(word_list)
+            img_name_list.append(image_name)
+        print('[Info] 样本数: {}'.format(len(img_name_list)))
+        return img_boxes_list, img_words_list, img_name_list
+
+    def load_image_gt_and_confidencemask(self, index):
+        '''
+        根据索引加载ground truth
+        :param index:索引
+        :return:bboxes 字符的框，
+        '''
+        image_name = self.img_name_list[index]
+        # gt_path = os.path.join(self.gt_file, "gt_%s.txt" % os.path.splitext(image_name)[0])
+        # word_bboxes, words = self.load_gt(gt_path)
+        word_bboxes, words = self.img_boxes_list[index], self.img_words_list[index]
+        word_bboxes = np.float32(word_bboxes)
+
+        image_path = os.path.join(self.img_folder, image_name)
+        image = cv2.imread(image_path)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+        # 测试逻辑
+        # from myutils.cv_utils import show_img_bgr, draw_rec_list_np, show_img_mask
+        # show_img_bgr(image[:, :, ::-1], save_name="tmp1.jpg")
+        # draw_rec_list_np(image[:, :, ::-1], rec_np=word_bboxes, save_name="tmp2.jpg")
+
+        image = random_scale(image, word_bboxes, self.target_size)
+        confidence_mask = np.ones((image.shape[0], image.shape[1]), np.float32)
+        # show_img_mask(image[:, :, ::-1], confidence_mask, save_name="tmp3.jpg")
+
+        # import copy
+        # img_copy = copy.copy(image[:, :, ::-1])
+
+        character_bboxes = []
+        new_words = []
+        confidences = []
+        if len(word_bboxes) > 0:
+            for i in range(len(word_bboxes)):
+                if words[i] == '###' or len(words[i].strip()) == 0:
+                    cv2.fillPoly(confidence_mask, [np.int32(word_bboxes[i])], 0)
+            # show_img_mask(image[:, :, ::-1], confidence_mask, save_name="tmp4.jpg")
+
+            for i in range(len(word_bboxes)):
+                if words[i] == '###' or len(words[i].strip()) == 0:
+                    continue
+                pursedo_bboxes, bbox_region_scores, confidence = \
+                    self.inference_pursedo_bboxes(self.net, image, word_bboxes[i], words[i], viz=self.viz)
+                confidences.append(confidence)
+                cv2.fillPoly(confidence_mask, [np.int32(word_bboxes[i])], confidence)
+                new_words.append(words[i])
+                character_bboxes.append(pursedo_bboxes)
+
+                # 测试
+                # img_copy = draw_rec_list_np(img_copy, rec_np=pursedo_bboxes, is_new=False)
+            # show_img_mask(image[:, :, ::-1], confidence_mask, save_name="tmp5.jpg")
+            # show_img_bgr(img_copy, save_name="tmp6.jpg")
+
+        return image, character_bboxes, new_words, confidence_mask, confidences
 
 
 if __name__ == '__main__':

@@ -130,11 +130,39 @@ class EnWordsProcessorV2(object):
             draw_rec_list(img_bgr, boxes, is_text=False, save_name="tmp.jpg")
             break
 
+    def process_v2(self):
+        """
+        整体处理逻辑
+        """
+        print('[Info] 输入文件路径: {}'.format(self.file_path))
+        data_line = read_file(self.file_path)[0]
+        data_dict = json.loads(data_line)
+        print('[Info] data_dict: {}'.format(len(data_dict)))
+        param_list = []
+
+        for img_idx, img_url in enumerate(data_dict.keys()):
+            data_list = data_dict[img_url]
+            bboxes = []
+            for idx, data in enumerate(data_list):
+                param = [idx, data, img_url, self.out_file, self.err_file]
+                param_list.append(param)
+                pos_data = data['pos']
+                rec_box = EnWordsProcessorV2.parse_pos_2_rec(pos_data)
+                bbox = rec2bbox(rec_box)
+                bboxes.append(bbox)
+            if len(bboxes) != 1:
+                continue
+        print('[Info] img_url: {}'.format(img_url))
+        print('[Info] bboxes: {}'.format(bboxes))
+        _, img_bgr = download_url_img(img_url)
+        draw_box_list(img_bgr, bboxes, thickness=-1, is_show=True, is_overlap=True, save_name="xxx.jpg")
+
 
 def main():
     ewp = EnWordsProcessorV2()
     # ewp.process()
-    ewp.check_data()
+    # ewp.check_data()
+    ewp.process_v2()
 
 
 if __name__ == '__main__':

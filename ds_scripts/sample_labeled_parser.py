@@ -6,6 +6,7 @@ Created by C. L. Wang on 24.6.21
 """
 
 import os
+import json
 import sys
 from multiprocessing.pool import Pool
 import xml.dom.minidom
@@ -183,11 +184,25 @@ class SampleLabeledParser(object):
         pool.join()
         print('[Info] 处理完成: {}'.format(out_file))
 
+    def extract_img_url(self):
+        in_file = os.path.join(DATA_DIR, 'word_content_ds', 'word_annotations_content.20210708170309.txt')
+        out_file = os.path.join(DATA_DIR, 'word_annotations_content_4_urls.txt')
+        data_lines = read_file(in_file)
+        image_urls = []
+        for data_line in data_lines:
+            data_dict = json.loads(data_line)
+            image_url = data_dict['image_url']
+            image_urls.append(image_url)
+        print('[Info] num of image_urls: {}'.format(len(image_urls)))
+        write_list_to_file(out_file, image_urls)
+        print('[Info] 写入完成: {}'.format(out_file))
+
 
 def main():
     slp = SampleLabeledParser()
     # slp.process_annotations()
-    slp.process_word_annotations()
+    # slp.process_word_annotations()
+    slp.extract_img_url()
 
 
 if __name__ == '__main__':
