@@ -74,7 +74,7 @@ def adjust_learning_rate(optimizer, gamma, step):
 
 
 if __name__ == '__main__':
-
+    print('[Info] 开启训练 my data!')
     is_cpu = False  # 测试
 
     dataloader = Synth80k(SYNTH_TEXT_PATH, target_size=768)
@@ -105,7 +105,7 @@ if __name__ == '__main__':
     real_data = MyDataset(net, MY_DATASET, target_size=768)
     real_data_loader = torch.utils.data.DataLoader(
         real_data,
-        batch_size=10,
+        batch_size=4,
         # batch_size=1,  # 测试
         shuffle=True,
         # shuffle=False,  # 测试
