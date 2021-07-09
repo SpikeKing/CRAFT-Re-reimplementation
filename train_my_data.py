@@ -97,7 +97,7 @@ if __name__ == '__main__':
     else:
         net.load_state_dict(copyStateDict(torch.load(weak_model_path)))
         net = net.cuda()
-        net = torch.nn.DataParallel(net,device_ids=[0, 1]).cuda()
+        net = torch.nn.DataParallel(net,device_ids=[0, 1, 2, 3]).cuda()
         cudnn.benchmark = True
     net.train()
 
@@ -105,7 +105,7 @@ if __name__ == '__main__':
     real_data = MyDataset(net, MY_DATASET, target_size=768)
     real_data_loader = torch.utils.data.DataLoader(
         real_data,
-        batch_size=4,
+        batch_size=10,
         # batch_size=1,  # 测试
         shuffle=True,
         # shuffle=False,  # 测试
